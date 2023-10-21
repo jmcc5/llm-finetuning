@@ -11,10 +11,10 @@
 ## Environment
 Create a conda environment from the .yml file.
 ```
-conda create --name fine-tuning --file requirements.txt
-conda activate fine-tuning
+conda env create -f config/environment.yml
+conda activate time-series
 ```
-Update it if any packageds are added:
+Update it if any packages are added:
 ```
-conda list --export > requirements.txt
+conda env export --no-builds > environment.yml
 ```
