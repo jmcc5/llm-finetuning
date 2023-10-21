@@ -11,8 +11,8 @@
 ## Environment
 Create a conda environment from the .yml file.
 ```
-conda env create -f config/environment.yml
-conda activate time-series
+conda env create -f environment.yml
+conda activate fine-tuning
 ```
 Update it if any packages are added:
 ```
