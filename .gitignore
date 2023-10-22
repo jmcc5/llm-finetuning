@@ -1,7 +1,10 @@
 /fine_tuning.egg-info
-/__pycache__
-*/__pycache__
+
+**/__pycache__
 /.vscode
+
 /data/cola
 /data/hans
 /data/mnli
+
+# /models/pretrained

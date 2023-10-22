@@ -1,5 +1,5 @@
 """
-Wrapper classes for facebook opt model inference and fine-tuning 
+Wrapper classes model download and use.
 https://huggingface.co/facebook/opt-125m
 https://huggingface.co/facebook/opt-350m
 """
@@ -36,22 +36,11 @@ def download_model(model_name):
         tokenizer.save_pretrained(filepath_tokenizer)
         model.save_pretrained(filepath_model)
         
-def get_opt125():
-    """Returns baseline opt-125m tokenizer and model"""
-    filepath = os.path.join(get_project_root(), 'models', 'opt125')
+def get_model(model_name):
+    """Returns baseline pre-trained tokenizer and model. Only opt-125m and opt-350m supported."""
+    filepath = os.path.join(get_project_root(), 'models', model_name)
     if not os.path.exists(filepath):
-        download_model('opt-125m')
-    filepath_tokenizer = os.path.join(filepath, 'tokenizer')
-    filepath_model = os.path.join(filepath, 'model')
-    tokenizer = AutoTokenizer.from_pretrained(filepath_tokenizer)
-    model = AutoModelForCausalLM.from_pretrained(filepath_model)
-    return tokenizer, model
-
-def get_opt350():
-    """Returns baseline opt-350m tokenizer and model"""
-    filepath = os.path.join(get_project_root(), 'models', 'opt350')
-    if not os.path.exists(filepath):
-        download_model('opt-350m')
+        download_model(model_name)
     filepath_tokenizer = os.path.join(filepath, 'tokenizer')
     filepath_model = os.path.join(filepath, 'model')
     tokenizer = AutoTokenizer.from_pretrained(filepath_tokenizer)
