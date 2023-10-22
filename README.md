@@ -1,5 +1,10 @@
 # Efficient_LLM_Few-Example_Fine-Tuning
 
+## Tasks
+- Baseline fine-tuning (Harrison)
+- Context distillation fine-tuning (Joel)
+- Evaluation (Ethan)
+
 ## Outline
 
 - `data`: datasets and import functions for glue datasets
