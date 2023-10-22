@@ -9,7 +9,7 @@ import os
 from datasets import load_dataset, load_from_disk
 
 # Import modules
-from utils import get_project_root
+from src.utils import get_project_root
 
         
 def download_dataset(dataset_name):

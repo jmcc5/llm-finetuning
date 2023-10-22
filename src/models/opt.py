@@ -9,7 +9,7 @@ import os
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 # Import modules
-from utils import get_project_root
+from src.utils import get_project_root
 
 # # Use a pipeline as a high-level helper
 # from transformers import pipeline
