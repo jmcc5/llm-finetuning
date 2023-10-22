@@ -23,3 +23,7 @@ Update it if any packages are added:
 ```
 conda env export --no-builds > environment.yml
 ```
+To download MNLI, COLA, and HANS datasets, run:
+```
+python data/data.py
+```
