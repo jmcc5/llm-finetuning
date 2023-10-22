@@ -1,5 +1,7 @@
 """
-Wrapper classes for facebook opt model inference and fine-tuning (https://huggingface.co/facebook/opt-125m)
+Wrapper classes for facebook opt model inference and fine-tuning 
+https://huggingface.co/facebook/opt-125m
+https://huggingface.co/facebook/opt-350m
 """
 
 # # Use a pipeline as a high-level helper
