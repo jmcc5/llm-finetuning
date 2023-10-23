@@ -8,6 +8,10 @@ Few-Shot Fine-tuning (FT):
 - Minimal pattern: append question mark to each example.
 - Verbalizer: "Yes" and "No" labels for NLI and QQP tasks.
 - Fine-tuning: 40 epochs, learning rate of 1e-5, linear increase for initial 10% of steps, then constant.
+
+Randomly sample 10x subsets of examples with sizes in {2, 16, 32, 64, 128}.
+30 runs for each sample size
+Experiment with 3 different patterns for each set?
 """
 
 # Import Libraries
