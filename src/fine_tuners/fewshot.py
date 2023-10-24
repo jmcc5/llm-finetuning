@@ -46,3 +46,8 @@ def fine_tune(model, tokenizer, train_dataset, val_dataset):
     )
 
     trainer.train()
+    
+    
+def batch_fine_tune(sample_size=[2, 16, 32, 64, 128], num_batches=10):
+    """Function to perform few-shot fine-tuning with certain sized samples of a certain number of batches"""
+    pass
