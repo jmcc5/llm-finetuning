@@ -56,7 +56,7 @@ def fine_tune(model, tokenizer, train_dataset, val_dataset):
 
     trainer.train()
     
-    #TODO: save model?
+    #TODO: save model? or run OOD eval here?
     
     
 def batch_fine_tune(sample_size=[2, 16, 32, 64, 128], num_batches=10):
