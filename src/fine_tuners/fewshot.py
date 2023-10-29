@@ -22,14 +22,14 @@ from src.fine_tuners.utils import apply_minimal_pattern, tokenize_function
 
 
 def fine_tune(model, tokenizer, train_dataset, val_dataset):
-    #TODO: Process data - append question mark to each example - utils
+    #TODO: Apply minimal pattern
     train_dataset = train_dataset.map(apply_minimal_pattern)
 
     #TODO: Tokenize
+    def tokenize_function(dataset):
+        return tokenizer(dataset["text"], padding="max_length", padding=True, truncation=True)
     train_dataset = train_dataset.map(tokenize_function, batched=True)
     # val_dataset = val_dataset.map(tokenize_function, batched=True)
-    
-    #TODO: Randomly select {2, 16, 32, 64, 128} samples from dataset
 
     # Fine tuning arguments (Mosbach et al.)
     training_args = TrainingArguments(
@@ -55,6 +55,8 @@ def fine_tune(model, tokenizer, train_dataset, val_dataset):
     )
 
     trainer.train()
+    
+    #TODO: save model?
     
     
 def batch_fine_tune(sample_size=[2, 16, 32, 64, 128], num_batches=10):
