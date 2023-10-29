@@ -23,11 +23,11 @@ from src.fine_tuners.utils import apply_minimal_pattern, tokenize_function
 
 def fine_tune(model, tokenizer, train_dataset, val_dataset):
     #TODO: Process data - append question mark to each example - utils
-    train_dataset = apply_minimal_pattern(train_dataset)
+    train_dataset = train_dataset.map(apply_minimal_pattern)
 
     #TODO: Tokenize
     train_dataset = train_dataset.map(tokenize_function, batched=True)
-    val_dataset = val_dataset.map(tokenize_function, batched=True)
+    # val_dataset = val_dataset.map(tokenize_function, batched=True)
     
     #TODO: Randomly select {2, 16, 32, 64, 128} samples from dataset
 
@@ -45,6 +45,7 @@ def fine_tune(model, tokenizer, train_dataset, val_dataset):
     )
     
     #TODO: write compute_metrics function for validation during training
+    #TODO: should validation be included here? should we do evaluation on the out of domain during training?
     
     trainer = Trainer(
         model=model,
