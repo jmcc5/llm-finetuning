@@ -18,22 +18,30 @@ Experiment with 3 different patterns for each set?
 from transformers import TrainingArguments, Trainer
 
 # Import Modules
-
+from src.fine_tuners.utils import apply_minimal_pattern, tokenize_function
 
 
 def fine_tune(model, tokenizer, train_dataset, val_dataset):
     #TODO: Process data - append question mark to each example - utils
+    train_dataset = apply_minimal_pattern(train_dataset)
 
-    #TODO: Verbalizer? Same as tokenizer?
+    #TODO: Tokenize
+    train_dataset = train_dataset.map(tokenize_function, batched=True)
+    val_dataset = val_dataset.map(tokenize_function, batched=True)
     
     #TODO: Randomly select {2, 16, 32, 64, 128} samples from dataset
 
-    # Fine tuning arguments
+    # Fine tuning arguments (Mosbach et al.)
     training_args = TrainingArguments(
         num_train_epochs=40,
         learning_rate=1e-5,
         evaluation_strategy="epoch",
-        
+        lr_scheduler_type='linear',
+        warmup_ratio = 0.1,
+        optim='AdamW',
+        # dropout=0.1,
+        # batch_size=32,
+        # total_steps=
     )
     
     #TODO: write compute_metrics function for validation during training
