@@ -18,16 +18,16 @@ Experiment with 3 different patterns for each set?
 from transformers import TrainingArguments, Trainer
 
 # Import Modules
-from src.fine_tuners.utils import apply_minimal_pattern, tokenize_function
+from src.fine_tuners.utils import apply_minimal_pattern, compute_metrics
 
 
-def fine_tune(model, tokenizer, train_dataset, val_dataset):
-    #TODO: Apply minimal pattern
-    train_dataset = train_dataset.map(apply_minimal_pattern)
+def fine_tune(model, tokenizer, train_dataset):
+    #Apply minimal pattern
+    train_dataset = train_dataset.map(apply_minimal_pattern, batched=True)
 
-    #TODO: Tokenize
+    # Tokenize
     def tokenize_function(dataset):
-        return tokenizer(dataset["text"], padding="max_length", padding=True, truncation=True)
+        return tokenizer(dataset['text'], truncation=True, padding='max_length', max_length=tokenizer.model_max_length)
     train_dataset = train_dataset.map(tokenize_function, batched=True)
     # val_dataset = val_dataset.map(tokenize_function, batched=True)
 
@@ -44,14 +44,12 @@ def fine_tune(model, tokenizer, train_dataset, val_dataset):
         # total_steps=
     )
     
-    #TODO: write compute_metrics function for validation during training
-    #TODO: should validation be included here? should we do evaluation on the out of domain during training?
-    
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
-        eval_dataset=val_dataset,
+        # eval_dataset=val_dataset,
+        # compute_metrics=compute_metrics,
     )
 
     trainer.train()
