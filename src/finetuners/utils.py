@@ -13,6 +13,7 @@ def apply_minimal_pattern(dataset):
     def format_batch(batch):
         # Apply the minimal pattern to the entire batch and return the modified batch
         batch['text'] = [premise + " " + hypothesis + "?" for premise, hypothesis in zip(batch['premise'], batch['hypothesis'])]
+        #TODO: handle labels
         return batch
 
     dataset = dataset.map(format_batch, batched=True)
@@ -20,6 +21,7 @@ def apply_minimal_pattern(dataset):
     return dataset
 
 def compute_metrics(eval_pred):
+    """Compute validation metrics."""
     metric = evaluate.load("accuracy")
     logits, labels = eval_pred
     predictions = np.argmax(logits, axis=-1)

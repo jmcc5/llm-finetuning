@@ -15,10 +15,12 @@ Experiment with 3 different patterns for each set?
 """
 
 # Import Libraries
+import os
 from transformers import TrainingArguments, Trainer
 
 # Import Modules
 from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics
+from src.utils import get_project_root
 
 
 def fine_tune(model, tokenizer, train_dataset):
@@ -32,13 +34,14 @@ def fine_tune(model, tokenizer, train_dataset):
     # val_dataset = val_dataset.map(tokenize_function, batched=True)
 
     # Fine tuning arguments (Mosbach et al.)
+    output_dir = os.path.join(get_project_root(), 'logs')
     training_args = TrainingArguments(
+        output_dir=output_dir,
         num_train_epochs=40,
         learning_rate=1e-5,
         evaluation_strategy="epoch",
         lr_scheduler_type='linear',
         warmup_ratio = 0.1,
-        optim='AdamW',
         # dropout=0.1,
         # batch_size=32,
         # total_steps=

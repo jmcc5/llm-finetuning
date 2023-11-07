@@ -8,6 +8,7 @@ import random
 
 def remove_neutral_labels(dataset):
     """Remove all rows from the MNLI dataset where the label is 1."""
+    #TODO: make subfunction names uniform (format_batch)
     
     def filter_labels(batch):
         return [label != 1 for label in batch['label']]
