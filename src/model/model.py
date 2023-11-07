@@ -39,3 +39,9 @@ def get_model(model_name, pretrained=True):
     tokenizer = AutoTokenizer.from_pretrained(filepath_tokenizer)
     model = AutoModelForCausalLM.from_pretrained(filepath_model)
     return tokenizer, model
+
+def save_model(model, tokenizer, model_name):
+    """Saves model and tokenizer to /models/finetuned. model_name should be descriptive of the fine-tuned model."""
+    filepath = os.path.join(get_project_root(), 'models', 'finetuned', model_name)
+    model.save_pretrained(filepath)
+    tokenizer.save_pretrained(filepath)
