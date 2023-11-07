@@ -7,11 +7,12 @@ import numpy as np
 import evaluate
 
 
-def apply_minimal_pattern(batch):
-    """Apply the minimal pattern {premise} {hypothesis}. Currently supports MNLI."""
-    batch['text'] = batch['premise'] + " " + batch['hypothesis'] + "?"
-    # batch['label'] = "Yes" if batch['label'] == 1 else "No" TODO: do we need this?
-    return batch
+def apply_minimal_pattern(dataset):
+    """Apply the minimal pattern '{premise} {hypothesis}?'. Currently supports MNLI."""
+    dataset['text'] = [premise + " " + hypothesis + "?" for premise, hypothesis in zip(dataset['premise'], dataset['hypothesis'])]
+    # dataset['text'] = dataset['premise'] + " " + dataset['hypothesis'] + "?"
+    # dataset['label'] = "Yes" if dataset['label'] == 1 else "No" TODO: do we need this?
+    return dataset
 
 def compute_metrics(eval_pred):
     metric = evaluate.load("accuracy")
