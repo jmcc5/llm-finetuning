@@ -18,16 +18,16 @@ Experiment with 3 different patterns for each set?
 from transformers import TrainingArguments, Trainer
 
 # Import Modules
-from src.fine_tuners.utils import apply_minimal_pattern, compute_metrics
+from src.finetuners.utils import apply_minimal_pattern, compute_metrics
 
 
 def fine_tune(model, tokenizer, train_dataset):
-    #Apply minimal pattern
-    train_dataset = train_dataset.map(apply_minimal_pattern, batched=True)
-
-    # Tokenize
+    """Few shot finetuning base method. Modifies model and tokenizer passed in."""
+    # Verbalize and tokenize
     def tokenize_function(dataset):
         return tokenizer(dataset['text'], truncation=True, padding='max_length', max_length=tokenizer.model_max_length)
+    
+    train_dataset = train_dataset.map(apply_minimal_pattern, batched=True)  # Apply minimal pattern
     train_dataset = train_dataset.map(tokenize_function, batched=True)
     # val_dataset = val_dataset.map(tokenize_function, batched=True)
 
@@ -54,7 +54,7 @@ def fine_tune(model, tokenizer, train_dataset):
 
     trainer.train()
     
-    #TODO: save model? or run OOD eval here?
+    #TODO: save model?
     
     
 def batch_fine_tune(sample_size=[2, 16, 32, 64, 128], num_batches=10):

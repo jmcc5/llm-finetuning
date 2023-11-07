@@ -1,5 +1,5 @@
 """
-Wrapper classes model download and use.
+Methods for model download and use.
 https://huggingface.co/facebook/opt-125m
 https://huggingface.co/facebook/opt-350m
 """
@@ -27,7 +27,7 @@ def download_model(model_name):
         model.save_pretrained(filepath_model)
         
 def get_model(model_name, pretrained=True):
-    """Returns baseline pre-trained tokenizer and model. Only opt-125m and opt-350m supported. If pretrained is False, will load from /models/finetuned"""
+    """Returns baseline pre-trained tokenizer and model. Only opt-125m and opt-350m supported. If pretrained is False, will load from /models/finetuned."""
     if pretrained:
         filepath = os.path.join(get_project_root(), 'models', 'pretrained', model_name)
     else:
