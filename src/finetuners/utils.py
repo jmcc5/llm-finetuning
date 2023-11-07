@@ -9,9 +9,14 @@ import evaluate
 
 def apply_minimal_pattern(dataset):
     """Apply the minimal pattern '{premise} {hypothesis}?'. Currently supports MNLI."""
-    dataset['text'] = [premise + " " + hypothesis + "?" for premise, hypothesis in zip(dataset['premise'], dataset['hypothesis'])]
-    # dataset['text'] = dataset['premise'] + " " + dataset['hypothesis'] + "?"
-    # dataset['label'] = "Yes" if dataset['label'] == 1 else "No" TODO: do we need this?
+    
+    def format_batch(batch):
+        # Apply the minimal pattern to the entire batch and return the modified batch
+        batch['text'] = [premise + " " + hypothesis + "?" for premise, hypothesis in zip(batch['premise'], batch['hypothesis'])]
+        return batch
+
+    dataset = dataset.map(format_batch, batched=True)
+    
     return dataset
 
 def compute_metrics(eval_pred):
