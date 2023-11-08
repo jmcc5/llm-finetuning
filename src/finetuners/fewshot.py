@@ -16,7 +16,6 @@ Experiment with 3 different patterns for each set?
 
 # Import Libraries
 import os
-import time
 import torch
 from transformers import TrainingArguments, Trainer
 
@@ -61,20 +60,19 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset):
 def evaluate_model(trainer, eval_dataset):
     """Evaluate fine-tuned model on out of domain dataset."""
 
-    start_time = time.time()
     torch.cuda.reset_peak_memory_stats()
     
-    predictions = trainer.predict(eval_dataset)    # Perform inference
+    prediction_output = trainer.predict(eval_dataset)    # Perform inference
     
-    inference_time = time.time() - start_time  # Inference time
     peak_memory_usage = torch.cuda.max_memory_allocated() / (1024 ** 3)  # bytes to GB
-    metrics = compute_metrics(predictions)  # Accuracy
+    metrics = prediction_output.metrics
+    accuracy = metrics['test_accuracy'] # Accuracy
+    total_inference_time = metrics['test_runtime']  # Inference time
 
-    # Consolidate results
     eval_results = {
-        'accuracy': metrics['accuracy'],
-        'total_inference_time': inference_time,  # Total time for the entire dataset
-        'average_inference_time_per_sample': inference_time / len(eval_dataset),  # Average time per sample
+        'accuracy': accuracy,
+        'total_inference_time': total_inference_time,  # Total time for the entire dataset
+        'average_inference_time_per_sample': total_inference_time / len(eval_dataset),  # Average time per sample
         'peak_memory_usage_gb': peak_memory_usage,  # Peak memory usage in GB
     }
     
