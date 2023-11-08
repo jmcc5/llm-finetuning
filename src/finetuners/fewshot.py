@@ -21,6 +21,8 @@ from transformers import TrainingArguments, Trainer
 
 # Import Modules
 from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics
+from src.data.utils import get_random_subsets
+from src.model.model import save_model, get_model
 from src.utils import get_project_root
 
 
@@ -54,7 +56,9 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset):
 
     trainer.train()
     
-    return evaluate_model(trainer, eval_dataset)
+    eval_results = evaluate_model(trainer, eval_dataset)
+    
+    return eval_results
         
     
 def evaluate_model(trainer, eval_dataset):
@@ -79,9 +83,20 @@ def evaluate_model(trainer, eval_dataset):
     return eval_results
     
     
-def batch_fine_tune(sample_size=[2, 16, 32, 64, 128], num_batches=10):
-    """Function to perform few-shot fine-tuning with certain sized samples of a certain number of batches"""
-    # iterate through samples
-    # Load model from disk each time?
-    # save models
-    pass
+def batch_fine_tune(model_name, train_dataset, eval_dataset, sample_sizes=[2, 16, 32, 64, 128], num_trials=10, save_trials=False):
+    """Function to perform few-shot fine-tuning with certain sized samples of a certain number of trials"""
+    
+    train_datasets = get_random_subsets(train_dataset, sample_sizes, num_trials)
+    
+    # Iterate over few-shot trials
+    for sample_size, trials in train_datasets:
+        for trial_num, dataset in enumerate(trials):
+            model, tokenizer = get_model(model_name)    # Load original model from disk
+            
+            eval_results = fine_tune(model, tokenizer, train_dataset, eval_dataset) # Fine-tune
+            
+            # Save trials to disk
+            if save_trials:
+                trial_label = f"{model_name}/{sample_size}-shot/{trial_num}"
+                save_model(model, trial_label)
+    
