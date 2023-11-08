@@ -13,7 +13,6 @@ def apply_minimal_pattern(dataset):
     def format_batch(batch):
         # Apply the minimal pattern to the entire batch and return the modified batch
         batch['text'] = [premise + " " + hypothesis + "?" for premise, hypothesis in zip(batch['premise'], batch['hypothesis'])]
-        #TODO: handle labels
         return batch
 
     dataset = dataset.map(format_batch, batched=True)
@@ -24,10 +23,11 @@ def tokenize_dataset(dataset, tokenizer, max_length=512):
     """Tokenize input dataset. Designed for use after minimal pattern is applied."""
     def tokenize_function(examples):
         tokenized_examples = tokenizer(examples['text'], truncation=True, padding='max_length', max_length=max_length)
-        tokenized_examples['label'] = examples['label']
         return tokenized_examples
     
-    return dataset.map(tokenize_function, batched=True)
+    dataset = dataset.map(tokenize_function, batched=True)
+    
+    return dataset
 
 def compute_metrics(eval_pred):
     """Compute validation metrics."""
