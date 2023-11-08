@@ -6,7 +6,7 @@ https://huggingface.co/facebook/opt-350m
 
 # Import Libraries
 import os
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 # Import modules
 from src.utils import get_project_root
@@ -16,7 +16,7 @@ def download_model(model_name):
     """Load specified huggingface model and save to disk. opt-125m and opt-250m supported."""
     if model_name == "opt-125m" or model_name == "opt-350m":
         tokenizer = AutoTokenizer.from_pretrained(f"facebook/{model_name}")
-        model = AutoModelForCausalLM.from_pretrained(f"facebook/{model_name}")
+        model = AutoModelForSequenceClassification.from_pretrained(f"facebook/{model_name}")
     else:
         raise ValueError(f"Model {model_name} not supported.")
     filepath = os.path.join(get_project_root(), 'models', 'pretrained', model_name)
@@ -37,7 +37,7 @@ def get_model(model_name, pretrained=True):
     filepath_tokenizer = os.path.join(filepath, 'tokenizer')
     filepath_model = os.path.join(filepath, 'model')
     tokenizer = AutoTokenizer.from_pretrained(filepath_tokenizer)
-    model = AutoModelForCausalLM.from_pretrained(filepath_model)
+    model = AutoModelForSequenceClassification.from_pretrained(filepath_model)
     return tokenizer, model
 
 def save_model(model, tokenizer, model_name):
