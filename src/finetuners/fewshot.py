@@ -25,10 +25,7 @@ from src.utils import get_project_root
 
 def fine_tune(model, tokenizer, train_dataset):
     """Few shot finetuning base method. Modifies model and tokenizer passed in."""
-    # Verbalize and tokenize
-    def tokenize_function(dataset):
-        return tokenizer(dataset['text'], truncation=True, padding='max_length', max_length=512)
-    
+    # Verbalize and tokenize    
     train_dataset = apply_minimal_pattern(train_dataset)  # Apply minimal pattern
     train_dataset = tokenize_dataset(train_dataset, tokenizer, max_length=512)  # Tokenize
     # val_dataset = val_dataset.map(tokenize_function, batched=True)

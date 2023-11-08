@@ -20,16 +20,16 @@ def apply_minimal_pattern(dataset):
     
     return dataset
 
-def compute_metrics(eval_pred):
-    """Compute validation metrics."""
-    metric = evaluate.load("accuracy")
-    logits, labels = eval_pred
-    predictions = np.argmax(logits, axis=-1)
-    return metric.compute(predictions=predictions, references=labels)
-
 def tokenize_dataset(dataset, tokenizer, max_length=512):
     """Tokenize input dataset. Designed for use after minimal pattern is applied."""
     def tokenize_function(examples):
         return tokenizer(examples['text'], truncation=True, padding='max_length', max_length=max_length)
     
     return dataset.map(tokenize_function, batched=True)
+
+def compute_metrics(eval_pred):
+    """Compute validation metrics."""
+    metric = evaluate.load("accuracy")
+    logits, labels = eval_pred
+    predictions = np.argmax(logits, axis=-1)
+    return metric.compute(predictions=predictions, references=labels)
