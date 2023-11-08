@@ -55,7 +55,7 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset):
 
     trainer.train()
     
-    return evaluate(trainer, eval_dataset)
+    return evaluate_model(trainer, eval_dataset)
         
     
 def evaluate_model(trainer, eval_dataset):
