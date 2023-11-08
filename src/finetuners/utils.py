@@ -23,7 +23,9 @@ def apply_minimal_pattern(dataset):
 def tokenize_dataset(dataset, tokenizer, max_length=512):
     """Tokenize input dataset. Designed for use after minimal pattern is applied."""
     def tokenize_function(examples):
-        return tokenizer(examples['text'], truncation=True, padding='max_length', max_length=max_length)
+        tokenized_examples = tokenizer(examples['text'], truncation=True, padding='max_length', max_length=max_length)
+        tokenized_examples['label'] = examples['label']
+        return tokenized_examples
     
     return dataset.map(tokenize_function, batched=True)
 
