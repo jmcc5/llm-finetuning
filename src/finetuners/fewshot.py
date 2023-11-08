@@ -17,6 +17,7 @@ Experiment with 3 different patterns for each set?
 # Import Libraries
 import os
 import torch
+import numpy as np
 from transformers import TrainingArguments, Trainer
 
 # Import Modules
@@ -83,20 +84,33 @@ def evaluate_model(trainer, eval_dataset):
     return eval_results
     
     
-def batch_fine_tune(model_name, train_dataset, eval_dataset, sample_sizes=[2, 16, 32, 64, 128], num_trials=10, save_trials=False):
+def batch_fine_tune(model_name, train_dataset, eval_dataset, sample_sizes, num_trials, save_trials=False):
     """Function to perform few-shot fine-tuning with certain sized samples of a certain number of trials"""
     
     train_datasets = get_random_subsets(train_dataset, sample_sizes, num_trials)
     
+    results = {}
+    avg_results = {}
+    
     # Iterate over few-shot trials
-    for sample_size, trials in train_datasets:
+    for sample_size, trials in train_datasets.items():
         for trial_num, dataset in enumerate(trials):
             model, tokenizer = get_model(model_name)    # Load original model from disk
             
-            eval_results = fine_tune(model, tokenizer, train_dataset, eval_dataset) # Fine-tune
+            eval_results = fine_tune(model, tokenizer, dataset, eval_dataset) # Fine-tune
             
             # Save trials to disk
             if save_trials:
                 trial_label = f"{model_name}/{sample_size}-shot/{trial_num}"
                 save_model(model, trial_label)
-    
+                
+            results[sample_size].append(eval_results)   # Log results
+            
+        avg_results[sample_size] = {
+            'accuracy': np.mean(result['accuracy'] for result in results[sample_size]),
+            'total_inference_time': np.mean(result['total_inference_time'] for result in results[sample_size]),
+            'average_inference_time_per_sample': np.mean(result['average_inference_time_per_sample'] for result in results[sample_size]),
+            'peak_memory_usage_gb': np.mean(result['peak_memory_usage_gb'] for result in results[sample_size]),
+        }
+        
+    return results, avg_results
