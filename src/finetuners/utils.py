@@ -29,9 +29,9 @@ def tokenize_dataset(dataset, tokenizer, max_length=512):
     
     return dataset
 
-def compute_metrics(eval_pred):
+def compute_metrics(predictions):
     """Compute validation metrics."""
     metric = evaluate.load("accuracy")
-    logits, labels = eval_pred
+    logits, labels = predictions
     predictions = np.argmax(logits, axis=-1)
     return metric.compute(predictions=predictions, references=labels)
