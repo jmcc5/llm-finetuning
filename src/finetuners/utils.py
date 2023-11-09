@@ -11,7 +11,6 @@ from datasets.utils import disable_progress_bar
 def apply_minimal_pattern(dataset):
     """Apply the minimal pattern '{premise} {hypothesis}?'. Currently supports MNLI."""   
     def format_batch(batch):
-        # Apply the minimal pattern to the entire batch and return the modified batch
         batch['text'] = [premise + " " + hypothesis + "?" for premise, hypothesis in zip(batch['premise'], batch['hypothesis'])]
         return batch
     
@@ -22,7 +21,6 @@ def apply_minimal_pattern(dataset):
 
 def tokenize_dataset(dataset, tokenizer, max_length=512):
     """Tokenize input dataset. Designed for use after minimal pattern is applied."""
-    disable_progress_bar()
     def tokenize_function(examples):
         tokenized_examples = tokenizer(examples['text'], truncation=True, padding='max_length', max_length=max_length)
         return tokenized_examples

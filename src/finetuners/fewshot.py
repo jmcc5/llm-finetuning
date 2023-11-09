@@ -81,6 +81,8 @@ def evaluate_model(trainer, eval_dataset):
         'peak_memory_usage_gb': peak_memory_usage,  # Peak memory usage in GB
     }
     
+    #TODO: add training loss, eval loss
+    
     return eval_results
     
     
@@ -89,15 +91,15 @@ def batch_fine_tune(model_name, train_dataset, eval_dataset, sample_sizes, num_t
     
     train_datasets = get_random_subsets(train_dataset, sample_sizes, num_trials)
     
-    results = {}
+    results = {size: [] for size in sample_sizes}
     avg_results = {}
     
+    #TODO: add progress bar and suppress Trainer progress bars/logging
     # Iterate over few-shot trials
     for sample_size, trials in train_datasets.items():
         for trial_num, dataset in enumerate(trials):
-            model, tokenizer = get_model(model_name)    # Load original model from disk
-            
-            eval_results = fine_tune(model, tokenizer, dataset, eval_dataset) # Fine-tune
+            model, tokenizer = get_model(model_name)    # Load original model from disk            
+            eval_results = fine_tune(model=model, tokenizer=tokenizer, train_dataset=dataset, eval_dataset=eval_dataset) # Fine-tune
             
             # Save trials to disk
             if save_trials:

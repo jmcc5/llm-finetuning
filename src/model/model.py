@@ -44,7 +44,7 @@ def get_model(model_name, pretrained=True):
         
     tokenizer = AutoTokenizer.from_pretrained(filepath_tokenizer)
     model = AutoModelForSequenceClassification.from_pretrained(filepath_model)
-    return tokenizer, model
+    return model, tokenizer
 
 def save_model(model, model_name):
     """Saves model to /models/finetuned. model_name should be descriptive of the fine-tuned model ('opt-125m_2')"""
