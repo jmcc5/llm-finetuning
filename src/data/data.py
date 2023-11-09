@@ -42,7 +42,6 @@ def get_in_domain(dataset_name='mnli', set_name='train'):
     
     # Data processing
     in_domain = remove_neutral_labels(in_domain)
-    #TODO: randomly select 1000?
     
     return in_domain
         
