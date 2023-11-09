@@ -18,7 +18,7 @@ Experiment with 3 different patterns for each set?
 import os
 import torch
 import numpy as np
-from transformers import TrainingArguments, Trainer
+from transformers import TrainingArguments, Trainer, PrinterCallback
 from tqdm.autonotebook import tqdm
 
 # Import Modules
@@ -41,7 +41,7 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset, verbose=True):
     output_dir = os.path.join(get_project_root(), 'logs')
     training_args = TrainingArguments(
         log_level='critical' if not verbose else 'passive',
-        logging_strategy='no',
+        disable_tqdm=not verbose,
         output_dir=output_dir,
         num_train_epochs=40,
         learning_rate=1e-5,
@@ -59,12 +59,18 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset, verbose=True):
         # eval_dataset=val_dataset,
         compute_metrics=compute_metrics,
     )
+    
+    if not verbose:
+        trainer.remove_callback(PrinterCallback)
 
-    trainer.train()
+    train_output = trainer.train()
+    train_metrics = train_output.metrics
     
-    eval_results = evaluate_model(trainer, eval_dataset)
+    pred_metrics = evaluate_model(trainer, eval_dataset)
     
-    return eval_results
+    combined_metrics = {**train_metrics, **pred_metrics}
+    
+    return combined_metrics
         
     
 def evaluate_model(trainer, eval_dataset):
@@ -72,23 +78,21 @@ def evaluate_model(trainer, eval_dataset):
 
     torch.cuda.reset_peak_memory_stats()
     
-    prediction_output = trainer.predict(eval_dataset)    # Perform inference
+    pred_output = trainer.predict(eval_dataset)    # Perform inference
     
     peak_memory_usage = torch.cuda.max_memory_allocated() / (1024 ** 3)  # bytes to GB TODO: huggingface has a method for this already
-    metrics = prediction_output.metrics
-    accuracy = metrics['test_accuracy'] # Accuracy
-    total_inference_time = metrics['test_runtime']  # Inference time
+    pred_metrics = pred_output.metrics
+    # accuracy = pred_metrics['test_accuracy'] # Accuracy
+    # total_inference_time = pred_metrics['test_runtime']  # Inference time
 
-    eval_results = {
-        'accuracy': accuracy,
-        'total_inference_time': total_inference_time,  # Total time for the entire dataset
-        'average_inference_time_per_sample': total_inference_time / len(eval_dataset),  # Average time per sample
-        'peak_memory_usage_gb': peak_memory_usage,  # Peak memory usage in GB
-    }
+    # eval_results = {
+    #     'accuracy': accuracy,
+    #     'total_inference_time': total_inference_time,  # Total time for the entire dataset
+    #     'average_inference_time_per_sample': total_inference_time / len(eval_dataset),  # Average time per sample
+    #     'peak_memory_usage_gb': peak_memory_usage,  # Peak memory usage in GB
+    # }
     
-    #TODO: add training loss, eval loss
-    
-    return eval_results
+    return pred_metrics
     
     
 def batch_fine_tune(model_name, train_dataset, eval_dataset, sample_sizes, num_trials, save_trials=False):
@@ -99,26 +103,25 @@ def batch_fine_tune(model_name, train_dataset, eval_dataset, sample_sizes, num_t
     results = {size: [] for size in sample_sizes}
     avg_results = {}
     
-    progress_bar = tqdm(train_datasets.items())
-    
     # Iterate over few-shot trials
-    for sample_size, trials in progress_bar:
-        for trial_num, dataset in enumerate(trials):
+    for sample_size, trials in train_datasets.items():
+        progress_bar = tqdm(trials, desc=f"{sample_size}-shot") #TODO: make this reflect the epochs as well...
+        for trial_num, dataset in enumerate(progress_bar):
             model, tokenizer = get_model(model_name)    # Load original model from disk            
-            eval_results = fine_tune(model=model, tokenizer=tokenizer, train_dataset=dataset, eval_dataset=eval_dataset, verbose=False) # Fine-tune
+            metrics = fine_tune(model=model, tokenizer=tokenizer, train_dataset=dataset, eval_dataset=eval_dataset, verbose=False) # Fine-tune
             
             # Save trials to disk
             if save_trials:
                 trial_label = f"{model_name}/{sample_size}-shot/{model_name}_{sample_size}-shot_{trial_num}"
                 save_model(model, trial_label)
                 
-            results[sample_size].append(eval_results)   # Log results
+            results[sample_size].append(metrics)   # Log results
             
-        avg_results[sample_size] = {
-            'accuracy': np.mean([result['accuracy'] for result in results[sample_size]]),
-            'total_inference_time': np.mean([result['total_inference_time'] for result in results[sample_size]]),
-            'average_inference_time_per_sample': np.mean([result['average_inference_time_per_sample'] for result in results[sample_size]]),
-            'peak_memory_usage_gb': np.mean([result['peak_memory_usage_gb'] for result in results[sample_size]]),
-        }
+        # avg_results[sample_size] = {
+        #     'accuracy': np.mean([result['accuracy'] for result in results[sample_size]]),
+        #     'total_inference_time': np.mean([result['total_inference_time'] for result in results[sample_size]]),
+        #     'average_inference_time_per_sample': np.mean([result['average_inference_time_per_sample'] for result in results[sample_size]]),
+        #     'peak_memory_usage_gb': np.mean([result['peak_memory_usage_gb'] for result in results[sample_size]]),
+        # }
         
-    return results, avg_results
+    return results
