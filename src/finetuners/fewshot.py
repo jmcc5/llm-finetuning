@@ -19,6 +19,7 @@ import os
 import torch
 import numpy as np
 from transformers import TrainingArguments, Trainer
+from tqdm.autonotebook import tqdm
 
 # Import Modules
 from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics
@@ -27,7 +28,7 @@ from src.model.model import save_model, get_model
 from src.utils import get_project_root
 
 
-def fine_tune(model, tokenizer, train_dataset, eval_dataset):
+def fine_tune(model, tokenizer, train_dataset, eval_dataset, verbose=True):
     """Few shot finetuning base method. Modifies model passed in."""
     # Verbalize and tokenize    
     train_dataset = apply_minimal_pattern(train_dataset)  # Apply minimal pattern
@@ -39,12 +40,16 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset):
     # Fine tuning arguments (Mosbach et al.)
     output_dir = os.path.join(get_project_root(), 'logs')
     training_args = TrainingArguments(
+        log_level='critical' if not verbose else 'passive',
+        logging_strategy='no',
         output_dir=output_dir,
         num_train_epochs=40,
         learning_rate=1e-5,
         lr_scheduler_type='linear',
         warmup_ratio = 0.1,
-        per_device_train_batch_size=len(train_dataset)
+        per_device_train_batch_size=len(train_dataset),
+        seed=42,
+        # skip_memory_metrics=False
     )
     
     trainer = Trainer(
@@ -69,7 +74,7 @@ def evaluate_model(trainer, eval_dataset):
     
     prediction_output = trainer.predict(eval_dataset)    # Perform inference
     
-    peak_memory_usage = torch.cuda.max_memory_allocated() / (1024 ** 3)  # bytes to GB
+    peak_memory_usage = torch.cuda.max_memory_allocated() / (1024 ** 3)  # bytes to GB TODO: huggingface has a method for this already
     metrics = prediction_output.metrics
     accuracy = metrics['test_accuracy'] # Accuracy
     total_inference_time = metrics['test_runtime']  # Inference time
@@ -94,25 +99,26 @@ def batch_fine_tune(model_name, train_dataset, eval_dataset, sample_sizes, num_t
     results = {size: [] for size in sample_sizes}
     avg_results = {}
     
-    #TODO: add progress bar and suppress Trainer progress bars/logging
+    progress_bar = tqdm(train_datasets.items())
+    
     # Iterate over few-shot trials
-    for sample_size, trials in train_datasets.items():
+    for sample_size, trials in progress_bar:
         for trial_num, dataset in enumerate(trials):
             model, tokenizer = get_model(model_name)    # Load original model from disk            
-            eval_results = fine_tune(model=model, tokenizer=tokenizer, train_dataset=dataset, eval_dataset=eval_dataset) # Fine-tune
+            eval_results = fine_tune(model=model, tokenizer=tokenizer, train_dataset=dataset, eval_dataset=eval_dataset, verbose=False) # Fine-tune
             
             # Save trials to disk
             if save_trials:
-                trial_label = f"{model_name}/{sample_size}-shot/{trial_num}"
+                trial_label = f"{model_name}/{sample_size}-shot/{model_name}_{sample_size}-shot_{trial_num}"
                 save_model(model, trial_label)
                 
             results[sample_size].append(eval_results)   # Log results
             
         avg_results[sample_size] = {
-            'accuracy': np.mean(result['accuracy'] for result in results[sample_size]),
-            'total_inference_time': np.mean(result['total_inference_time'] for result in results[sample_size]),
-            'average_inference_time_per_sample': np.mean(result['average_inference_time_per_sample'] for result in results[sample_size]),
-            'peak_memory_usage_gb': np.mean(result['peak_memory_usage_gb'] for result in results[sample_size]),
+            'accuracy': np.mean([result['accuracy'] for result in results[sample_size]]),
+            'total_inference_time': np.mean([result['total_inference_time'] for result in results[sample_size]]),
+            'average_inference_time_per_sample': np.mean([result['average_inference_time_per_sample'] for result in results[sample_size]]),
+            'peak_memory_usage_gb': np.mean([result['peak_memory_usage_gb'] for result in results[sample_size]]),
         }
         
     return results, avg_results
