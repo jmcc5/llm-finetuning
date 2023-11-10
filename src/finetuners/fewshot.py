@@ -12,8 +12,6 @@ Few-Shot Fine-tuning (FT):
 
 # Import Libraries
 import os
-import torch
-import numpy as np
 from transformers import TrainingArguments, Trainer, PrinterCallback
 from tqdm.autonotebook import tqdm
 
@@ -51,6 +49,7 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset, verbose=True):
         model=model,
         args=training_args,
         train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
         callbacks=[MemoryUsageCallback],
     )
@@ -58,37 +57,16 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset, verbose=True):
     if not verbose:
         trainer.remove_callback(PrinterCallback)
 
+    # Train on in domain
     train_output = trainer.train()
     train_metrics = train_output.metrics
     
-    pred_metrics = evaluate_model(trainer, eval_dataset)
+    # Evaluate on OOD
+    eval_metrics = trainer.evaluate()
     
-    combined_metrics = {**train_metrics, **pred_metrics}
+    combined_metrics = {**train_metrics, **eval_metrics}
     
-    return combined_metrics
-        
-    
-def evaluate_model(trainer, eval_dataset):
-    """Evaluate fine-tuned model on out of domain dataset."""
-
-    torch.cuda.reset_peak_memory_stats()
-    
-    pred_output = trainer.predict(eval_dataset)    # Perform inference
-    
-    peak_memory_usage = torch.cuda.max_memory_allocated() / (1024 ** 3)  # bytes to GB TODO: huggingface has a method for this already
-    pred_metrics = pred_output.metrics
-    # accuracy = pred_metrics['test_accuracy'] # Accuracy
-    # total_inference_time = pred_metrics['test_runtime']  # Inference time
-
-    # eval_results = {
-    #     'accuracy': accuracy,
-    #     'total_inference_time': total_inference_time,  # Total time for the entire dataset
-    #     'average_inference_time_per_sample': total_inference_time / len(eval_dataset),  # Average time per sample
-    #     'peak_memory_usage_gb': peak_memory_usage,  # Peak memory usage in GB
-    # }
-    
-    return pred_metrics
-    
+    return combined_metrics    
     
 def batch_fine_tune(model_name, train_dataset, eval_dataset, sample_sizes, num_trials, save_trials=False):
     """Function to perform few-shot fine-tuning with certain sized samples of a certain number of trials"""

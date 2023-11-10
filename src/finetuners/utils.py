@@ -39,7 +39,7 @@ def tokenize_dataset(dataset, tokenizer, max_length=512):
     return dataset
 
 def compute_metrics(predictions):
-    """Compute validation metrics."""
+    """Compute evaluation metrics."""
     metric = evaluate.load("accuracy")
     logits, labels = predictions
     predictions = np.argmax(logits, axis=-1)
@@ -80,8 +80,8 @@ class MemoryUsageCallback(TrainerCallback):
     def on_train_begin(self, args, state, control, **kwargs):
         self.last_call = 'train'
         self.reset_memory_stats()
-
-    def on_predict(self, args, state, control, **kwargs):
+        
+    def on_prediction_step(self, args, state, control, **kwargs):
         self.last_call = 'predict'
         self.reset_memory_stats()
 
