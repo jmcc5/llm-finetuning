@@ -1,7 +1,7 @@
 # Efficient_LLM_Few-Example_Fine-Tuning
 
 ## Tasks
-- [ ] Few-shot fine-tuning (Harrison)
+- [x] Few-shot fine-tuning (Harrison)
 - [ ] In context learning (Ethan)
 - [ ] Context distillation fine-tuning (Joel)
 
