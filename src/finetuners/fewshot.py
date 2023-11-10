@@ -8,10 +8,6 @@ Few-Shot Fine-tuning (FT):
 - Minimal pattern: append question mark to each example.
 - Verbalizer: "Yes" and "No" labels for NLI and QQP tasks.
 - Fine-tuning: 40 epochs, learning rate of 1e-5, linear increase for initial 10% of steps, then constant.
-
-Randomly sample 10x subsets of examples with sizes in {2, 16, 32, 64, 128}.
-30 runs for each sample size
-Experiment with 3 different patterns for each set?
 """
 
 # Import Libraries
@@ -22,7 +18,7 @@ from transformers import TrainingArguments, Trainer, PrinterCallback
 from tqdm.autonotebook import tqdm
 
 # Import Modules
-from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics
+from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv
 from src.data.utils import get_random_subsets
 from src.model.model import save_model, get_model
 from src.utils import get_project_root
@@ -101,7 +97,6 @@ def batch_fine_tune(model_name, train_dataset, eval_dataset, sample_sizes, num_t
     train_datasets = get_random_subsets(train_dataset, sample_sizes, num_trials)
     
     results = {size: [] for size in sample_sizes}
-    avg_results = {}
     
     # Iterate over few-shot trials
     for sample_size, trials in train_datasets.items():
@@ -116,12 +111,8 @@ def batch_fine_tune(model_name, train_dataset, eval_dataset, sample_sizes, num_t
                 save_model(model, trial_label)
                 
             results[sample_size].append(metrics)   # Log results
-            
-        # avg_results[sample_size] = {
-        #     'accuracy': np.mean([result['accuracy'] for result in results[sample_size]]),
-        #     'total_inference_time': np.mean([result['total_inference_time'] for result in results[sample_size]]),
-        #     'average_inference_time_per_sample': np.mean([result['average_inference_time_per_sample'] for result in results[sample_size]]),
-        #     'peak_memory_usage_gb': np.mean([result['peak_memory_usage_gb'] for result in results[sample_size]]),
-        # }
+        
+    # Write to csv
+    metrics_to_csv(metrics_dict=results, model_name=model_name, finetuning_method='fewshot')
         
     return results
