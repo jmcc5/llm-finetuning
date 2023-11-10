@@ -34,17 +34,20 @@ def download_dataset(dataset_name):
         dataset.save_to_disk(filepath)
     
 def get_in_domain(dataset_name='mnli', set_name='train'):
-    """Returns huggingface Dataset for In Domain"""
+    """Returns huggingface Datasets for In Domain. Default dataset is MNLI. 80/20 train/test split."""
     
-    filepath = os.path.join(get_project_root(), 'data', dataset_name, set_name)
-    if not os.path.exists(filepath):
+    filepath_train = os.path.join(get_project_root(), 'data', dataset_name, 'train')
+    filepath_val = os.path.join(get_project_root(), 'data', dataset_name, 'validation_matched')
+    if not os.path.exists(filepath_train):
         download_dataset(dataset_name=dataset_name)
-    in_domain = load_from_disk(filepath)
+    in_domain_train = load_from_disk(filepath_train)
+    in_domain_val = load_from_disk(filepath_val)
     
     # Data processing
-    in_domain = remove_neutral_labels(in_domain)
+    in_domain_train = remove_neutral_labels(in_domain_train)
+    in_domain_val = remove_neutral_labels(in_domain_val)
     
-    return in_domain
+    return in_domain_train, in_domain_val
         
 def get_out_domain(dataset_name='hans', set_name='validation'):
     """Returns huggingface Dataset for Out of Domain"""
