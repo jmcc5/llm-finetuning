@@ -1,14 +1,16 @@
 # Efficient_LLM_Few-Example_Fine-Tuning
 
 ## Tasks
-- Baseline fine-tuning (Harrison)
-- Context distillation fine-tuning (Joel)
-- Evaluation (Ethan)
+- [ ] Few-shot fine-tuning (Harrison)
+- [ ] In context learning (Ethan)
+- [ ] Context distillation fine-tuning (Joel)
+
 
 ## Outline
 
 - `data`: datasets from huggingface
 - `experiments`: notebooks for running experiments
+- `logs`: csv output from fine-tuning
 - `models`: saved pre-trained and fine-tuned models
 - `src/`: main project directory
   - `data`: import functions for datasets
