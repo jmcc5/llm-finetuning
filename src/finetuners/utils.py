@@ -9,7 +9,6 @@ import numpy as np
 import torch
 import evaluate
 from transformers import TrainerCallback
-from transformers.integrations.integration_utils import rewrite_logs
 
 # Import Modules
 from datasets.utils import disable_progress_bar
