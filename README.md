@@ -17,7 +17,7 @@
   - `evaluation`: functions for evaluating fine-tuned models
   - `fine_tuners`: fine tuning classes
   - `models`: wrapper classes for opt models
-- `utils.py`: utility functions for the entire project
+  - `utils.py`: utility functions for the entire project
 
 ## Environment
 Create a conda environment from the .yml file.
