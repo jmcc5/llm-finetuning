@@ -17,7 +17,7 @@ from tqdm.autonotebook import tqdm
 
 # Import Modules
 from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, MemoryUsageCallback
-from src.data.utils import get_random_subsets
+from src.data.data import get_random_subsets
 from src.model.model import save_model, get_model
 from src.utils import get_project_root
 
@@ -60,6 +60,8 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset, verbose=True):
     # Train on in domain
     train_output = trainer.train()
     train_metrics = train_output.metrics
+    
+    #TODO: need to eval on in-domain too
     
     # Evaluate on OOD
     eval_metrics = trainer.evaluate()
