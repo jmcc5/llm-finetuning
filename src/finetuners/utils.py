@@ -82,12 +82,11 @@ class MemoryUsageCallback(TrainerCallback):
         self.reset_memory_stats()
         
     def on_prediction_step(self, args, state, control, **kwargs):
-        self.last_call = 'predict'
-        self.reset_memory_stats()
+        self.last_call = 'eval'
 
     def on_log(self, args, state, control, logs=None, **kwargs):
         if self.using_cuda:
             peak_memory = torch.cuda.max_memory_allocated() / (1024**3)  # Bytes to GB
-            prefix = 'train_' if self.last_call == 'train' else 'test_'
+            prefix = f"{self.last_call}_"
             logs[prefix + "peak_memory_gb"] = peak_memory
             self.reset_memory_stats()

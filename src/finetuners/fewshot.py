@@ -77,19 +77,21 @@ def batch_fine_tune(model_name, train_dataset, eval_dataset, sample_sizes, num_t
     
     # Iterate over few-shot trials
     for sample_size, trials in train_datasets.items():
-        progress_bar = tqdm(trials, desc=f"{sample_size}-shot") #TODO: make this reflect the epochs as well...
+        progress_bar = tqdm(trials, desc=f"{sample_size}-shot")
         for trial_num, dataset in enumerate(progress_bar):
             model, tokenizer = get_model(model_name)    # Load original model from disk            
             metrics = fine_tune(model=model, tokenizer=tokenizer, train_dataset=dataset, eval_dataset=eval_dataset, verbose=False) # Fine-tune
             
-            # Save trials to disk
+            # Save fine-tuned model to disk
             if save_trials:
                 trial_label = f"{model_name}/{sample_size}-shot/{model_name}_{sample_size}-shot_{trial_num}"
                 save_model(model, trial_label)
                 
             results[sample_size].append(metrics)   # Log results
+            
+            progress_bar.set_postfix(results[sample_size][trial_num])   # Update progress bar postfix
         
-    # Write to csv
+    # Write results to csv
     metrics_to_csv(metrics_dict=results, model_name=model_name, finetuning_method='fewshot')
         
     return results
