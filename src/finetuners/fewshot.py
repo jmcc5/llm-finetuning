@@ -18,7 +18,7 @@ from transformers import TrainingArguments, Trainer, PrinterCallback
 from tqdm.autonotebook import tqdm
 
 # Import Modules
-from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv
+from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, MemoryUsageCallback
 from src.data.utils import get_random_subsets
 from src.model.model import save_model, get_model
 from src.utils import get_project_root
@@ -45,15 +45,14 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset, verbose=True):
         warmup_ratio = 0.1,
         per_device_train_batch_size=len(train_dataset),
         seed=42,
-        # skip_memory_metrics=False
     )
     
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
-        # eval_dataset=val_dataset,
         compute_metrics=compute_metrics,
+        callbacks=[MemoryUsageCallback],
     )
     
     if not verbose:

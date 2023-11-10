@@ -6,7 +6,10 @@ Utility functions for fine-tuning
 import os
 import csv
 import numpy as np
+import torch
 import evaluate
+from transformers import TrainerCallback
+from transformers.integrations.integration_utils import rewrite_logs
 
 # Import Modules
 from datasets.utils import disable_progress_bar
@@ -61,3 +64,30 @@ def metrics_to_csv(metrics_dict, model_name, finetuning_method):
                 row = [model_name, shots]
                 row.extend(result.values())
                 writer.writerow(row)
+
+class MemoryUsageCallback(TrainerCallback):
+    """Callback class to add GPU memory usage metrics to metric dicts."""
+    
+    def __init__(self):
+        self.using_cuda = torch.cuda.is_available()
+        self.reset_memory_stats()
+        self.last_call = None 
+
+    def reset_memory_stats(self):
+        if self.using_cuda:
+            torch.cuda.reset_peak_memory_stats()
+
+    def on_train_begin(self, args, state, control, **kwargs):
+        self.last_call = 'train'
+        self.reset_memory_stats()
+
+    def on_predict(self, args, state, control, **kwargs):
+        self.last_call = 'predict'
+        self.reset_memory_stats()
+
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        if self.using_cuda:
+            peak_memory = torch.cuda.max_memory_allocated() / (1024**3)  # Bytes to GB
+            prefix = 'train_' if self.last_call == 'train' else 'test_'
+            logs[prefix + "peak_memory_gb"] = peak_memory
+            self.reset_memory_stats()
