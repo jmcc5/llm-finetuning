@@ -9,12 +9,59 @@ import numpy as np
 import torch
 import evaluate
 from transformers import TrainerCallback
-from transformers.integrations.integration_utils import rewrite_logs
 
 # Import Modules
 from datasets.utils import disable_progress_bar
 from src.utils import get_project_root
 
+class MemoryUsageCallback(TrainerCallback):
+    """Callback class to add GPU memory usage metrics to metric dicts."""
+    #BUG: memory metric is the same for eval in/out domain
+    
+    def __init__(self):
+        self.using_cuda = torch.cuda.is_available()
+        self.reset_memory_stats()
+        self.last_call = None
+
+    def reset_memory_stats(self):
+        if self.using_cuda:
+            torch.cuda.reset_peak_memory_stats()
+
+    def on_train_begin(self, args, state, control, **kwargs):
+        self.last_call = 'train'
+        self.reset_memory_stats()
+        
+    def on_prediction_step(self, args, state, control, **kwargs):
+        self.last_call = 'eval'
+
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        if self.using_cuda:
+            peak_memory = torch.cuda.max_memory_allocated() / (1024**3)  # Bytes to GB
+            prefix = f"{self.last_call}_"
+            logs[prefix + "peak_memory_gb"] = peak_memory
+            self.reset_memory_stats()
+            
+class ReformatEvalMetricsCallback(TrainerCallback):
+    """Callback class to reformat eval metrics labels."""
+    
+    def __init__(self):
+        self.last_call = None
+        self.log_call_count = 0
+
+    def on_train_begin(self, args, state, control, **kwargs):
+        self.last_call = 'train'
+        
+    def on_prediction_step(self, args, state, control, **kwargs):
+        self.last_call = 'eval'
+
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        self.log_call_count += 1
+        if self.last_call == 'eval':
+            if self.log_call_count == 2:
+                infix = "in"
+            if self.log_call_count == 3:
+                infix = "out"
+            logs = reformat_eval_metrics(logs, infix)
 
 def apply_minimal_pattern(dataset):
     """Apply the minimal pattern '{premise} {hypothesis}?'. Currently supports MNLI."""   
@@ -64,29 +111,10 @@ def metrics_to_csv(metrics_dict, model_name, finetuning_method):
                 row = [model_name, shots]
                 row.extend(result.values())
                 writer.writerow(row)
-
-class MemoryUsageCallback(TrainerCallback):
-    """Callback class to add GPU memory usage metrics to metric dicts."""
-    
-    def __init__(self):
-        self.using_cuda = torch.cuda.is_available()
-        self.reset_memory_stats()
-        self.last_call = None 
-
-    def reset_memory_stats(self):
-        if self.using_cuda:
-            torch.cuda.reset_peak_memory_stats()
-
-    def on_train_begin(self, args, state, control, **kwargs):
-        self.last_call = 'train'
-        self.reset_memory_stats()
-        
-    def on_prediction_step(self, args, state, control, **kwargs):
-        self.last_call = 'eval'
-
-    def on_log(self, args, state, control, logs=None, **kwargs):
-        if self.using_cuda:
-            peak_memory = torch.cuda.max_memory_allocated() / (1024**3)  # Bytes to GB
-            prefix = f"{self.last_call}_"
-            logs[prefix + "peak_memory_gb"] = peak_memory
-            self.reset_memory_stats()
+                
+def reformat_eval_metrics(logs, infix):
+    """Reformats the metrics dict to 'eval_in_' or 'eval_out_'"""
+    keys_to_modify = [k for k in logs.keys() if k.startswith('eval')]
+    for key in keys_to_modify:
+        new_key = f"{key[:4]}_{infix}{key[4:]}"
+        logs[new_key] = logs.pop(key)
