@@ -4,6 +4,7 @@
 - [x] Few-shot fine-tuning (Harrison)
 - [ ] In context learning (Ethan)
 - [ ] Context distillation fine-tuning (Joel)
+- [ ] Visualizations for report (Harrison)
 
 
 ## Outline
