@@ -62,7 +62,7 @@ def get_out_domain(dataset_name='hans', set_name='validation'):
     
     return out_domain
 
-def get_random_subsets(train_dataset, in_domain_test, out_domain, train_sample_sizes=[2, 16, 32, 64, 128], num_trials=10, eval_sample_size=50):
+def get_random_subsets(train_dataset, eval_dataset_in, eval_dataset_out, train_sample_sizes=[2, 16, 32, 64, 128], num_trials=10, eval_sample_size=50):
     """Returns a dictionary of a list of randomly sampled datasets, indexed by sample_size"""
     #TODO: need to seed np.random somewhere
     
@@ -74,15 +74,15 @@ def get_random_subsets(train_dataset, in_domain_test, out_domain, train_sample_s
 
         # Loop to create 'num_samples' random train_datasets
         for _ in range(num_trials):
-            random_indices = np.random.sample(range(len(train_dataset)), size)
+            random_indices = np.random.choice(range(len(train_dataset)), size, replace=False)
             subset = train_dataset.select(random_indices)
             train_datasets[size].append(subset)
             
     # Generate eval datasets
-    random_indices = np.random.sample(range(in_domain_test), eval_sample_size)
-    eval_dataset_in = in_domain_test.select(random_indices)
+    random_indices = np.random.choice(range(len(eval_dataset_in)), eval_sample_size, replace=False)
+    eval_in = eval_dataset_in.select(random_indices)
     
-    random_indices = np.random.sample(range(out_domain), eval_sample_size)
-    eval_dataset_out = out_domain.select(random_indices)
+    random_indices = np.random.choice(range(len(eval_dataset_out)), eval_sample_size, replace=False)
+    eval_out = eval_dataset_out.select(random_indices)
 
-    return train_datasets, eval_dataset_in, eval_dataset_out
+    return train_datasets, eval_in, eval_out

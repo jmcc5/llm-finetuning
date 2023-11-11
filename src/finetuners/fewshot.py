@@ -17,7 +17,6 @@ from tqdm.autonotebook import tqdm
 
 # Import Modules
 from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, MemoryUsageCallback, ReformatEvalMetricsCallback
-from src.data.data import get_random_subsets
 from src.model.model import save_model, get_model
 from src.utils import get_project_root
 
@@ -74,19 +73,17 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
     
     return combined_metrics    
     
-def batch_fine_tune(model_name, train_dataset, eval_dataset, sample_sizes, num_trials, save_trials=False):
+def batch_fine_tune(model_name, train_datasets, eval_dataset_in, eval_dataset_out, save_trials=False):
     """Function to perform few-shot fine-tuning with certain sized samples of a certain number of trials"""
     
-    train_datasets = get_random_subsets(train_dataset, sample_sizes, num_trials)
-    
-    results = {size: [] for size in sample_sizes}
+    results = {size: [] for size in train_datasets.keys()}
     
     # Iterate over few-shot trials
     for sample_size, trials in train_datasets.items():
         progress_bar = tqdm(trials, desc=f"{sample_size}-shot")
         for trial_num, dataset in enumerate(progress_bar):
-            model, tokenizer = get_model(model_name)    # Load original model from disk            
-            metrics = fine_tune(model=model, tokenizer=tokenizer, train_dataset=dataset, eval_dataset=eval_dataset, verbose=False) # Fine-tune
+            model, tokenizer = get_model(model_name)    # Load original model from disk
+            metrics = fine_tune(model=model, tokenizer=tokenizer, train_dataset=dataset, eval_dataset_in=eval_dataset_in, eval_dataset_out=eval_dataset_out, verbose=False) # Fine-tune
             
             # Save fine-tuned model to disk
             if save_trials:

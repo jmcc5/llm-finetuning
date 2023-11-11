@@ -16,6 +16,7 @@ from src.utils import get_project_root
 
 class MemoryUsageCallback(TrainerCallback):
     """Callback class to add GPU memory usage metrics to metric dicts."""
+    #BUG: memory metric is the same for eval in/out domain
     
     def __init__(self):
         self.using_cuda = torch.cuda.is_available()
