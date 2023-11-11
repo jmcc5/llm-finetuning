@@ -11,7 +11,7 @@ Out of Domain: HANS lexical overlap
 
 # Import libraries
 import os
-import random
+import numpy as np
 from datasets import load_dataset, load_from_disk
 
 # Import modules
@@ -62,19 +62,27 @@ def get_out_domain(dataset_name='hans', set_name='validation'):
     
     return out_domain
 
-def get_random_subsets(dataset, sample_sizes=[2, 16, 32, 64, 128], num_trials=10):
+def get_random_subsets(train_dataset, in_domain_test, out_domain, train_sample_sizes=[2, 16, 32, 64, 128], num_trials=10, eval_sample_size=50):
     """Returns a dictionary of a list of randomly sampled datasets, indexed by sample_size"""
+    #TODO: need to seed np.random somewhere
     
-    subsets = {}
+    train_datasets = {}
 
     # Loop through each sample size
-    for size in sample_sizes:
-        subsets[size] = []
+    for size in train_sample_sizes:
+        train_datasets[size] = []
 
-        # Loop to create 'num_samples' random subsets
+        # Loop to create 'num_samples' random train_datasets
         for _ in range(num_trials):
-            random_indices = random.sample(range(len(dataset)), size)
-            subset = dataset.select(random_indices)
-            subsets[size].append(subset)
+            random_indices = np.random.sample(range(len(train_dataset)), size)
+            subset = train_dataset.select(random_indices)
+            train_datasets[size].append(subset)
+            
+    # Generate eval datasets
+    random_indices = np.random.sample(range(in_domain_test), eval_sample_size)
+    eval_dataset_in = in_domain_test.select(random_indices)
+    
+    random_indices = np.random.sample(range(out_domain), eval_sample_size)
+    eval_dataset_out = out_domain.select(random_indices)
 
-    return subsets
+    return train_datasets, eval_dataset_in, eval_dataset_out
