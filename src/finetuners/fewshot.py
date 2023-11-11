@@ -16,20 +16,23 @@ from transformers import TrainingArguments, Trainer, PrinterCallback
 from tqdm.autonotebook import tqdm
 
 # Import Modules
-from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, MemoryUsageCallback
+from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, MemoryUsageCallback, ReformatEvalMetricsCallback
 from src.data.data import get_random_subsets
 from src.model.model import save_model, get_model
 from src.utils import get_project_root
 
 
-def fine_tune(model, tokenizer, train_dataset, eval_dataset, verbose=True):
+def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out, verbose=True):
     """Few shot finetuning base method. Modifies model passed in."""
     # Verbalize and tokenize    
     train_dataset = apply_minimal_pattern(train_dataset)  # Apply minimal pattern
     train_dataset = tokenize_dataset(train_dataset, tokenizer, max_length=512)  # Tokenize
     
-    eval_dataset = apply_minimal_pattern(eval_dataset)
-    eval_dataset = tokenize_dataset(eval_dataset, tokenizer, max_length=512)
+    eval_dataset_in = apply_minimal_pattern(eval_dataset_in)
+    eval_dataset_in = tokenize_dataset(eval_dataset_in, tokenizer, max_length=512)
+    
+    eval_dataset_out = apply_minimal_pattern(eval_dataset_out)
+    eval_dataset_out = tokenize_dataset(eval_dataset_out, tokenizer, max_length=512)
 
     # Fine tuning arguments (Mosbach et al.)
     output_dir = os.path.join(get_project_root(), 'logs')
@@ -49,9 +52,9 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset, verbose=True):
         model=model,
         args=training_args,
         train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
+        eval_dataset=eval_dataset_in,
         compute_metrics=compute_metrics,
-        callbacks=[MemoryUsageCallback],
+        callbacks=[MemoryUsageCallback, ReformatEvalMetricsCallback],
     )
     
     if not verbose:
@@ -61,12 +64,13 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset, verbose=True):
     train_output = trainer.train()
     train_metrics = train_output.metrics
     
-    #TODO: need to eval on in-domain too
+    # Evaluate on in domain
+    eval_metrics_in = trainer.evaluate()
     
     # Evaluate on OOD
-    eval_metrics = trainer.evaluate()
+    eval_metrics_out = trainer.evaluate(eval_dataset=eval_dataset_out)
     
-    combined_metrics = {**train_metrics, **eval_metrics}
+    combined_metrics = {**train_metrics, **eval_metrics_in, **eval_metrics_out}
     
     return combined_metrics    
     
