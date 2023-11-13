@@ -22,6 +22,7 @@ class MemoryUsageCallback(TrainerCallback):
         self.using_cuda = torch.cuda.is_available()
         self.reset_memory_stats()
         self.last_call = None
+        self.eval_started = False
 
     def reset_memory_stats(self):
         if self.using_cuda:
@@ -32,6 +33,9 @@ class MemoryUsageCallback(TrainerCallback):
         self.reset_memory_stats()
         
     def on_prediction_step(self, args, state, control, **kwargs):
+        if not self.eval_started:
+            self.reset_memory_stats()
+            self.eval_started = True
         self.last_call = 'eval'
 
     def on_log(self, args, state, control, logs=None, **kwargs):
@@ -39,7 +43,7 @@ class MemoryUsageCallback(TrainerCallback):
             peak_memory = torch.cuda.max_memory_allocated() / (1024**3)  # Bytes to GB
             prefix = f"{self.last_call}_"
             logs[prefix + "peak_memory_gb"] = peak_memory
-            self.reset_memory_stats()
+            self.eval_started = False
             
 class ReformatEvalMetricsCallback(TrainerCallback):
     """Callback class to reformat eval metrics labels."""
