@@ -9,9 +9,9 @@ import numpy as np
 import torch
 import evaluate
 from transformers import TrainerCallback
+from datasets.utils import disable_progress_bar
 
 # Import Modules
-from datasets.utils import disable_progress_bar
 from src.utils import get_project_root
 
 class MemoryUsageCallback(TrainerCallback):
@@ -68,7 +68,7 @@ class ReformatEvalMetricsCallback(TrainerCallback):
             logs = reformat_eval_metrics(logs, infix)
 
 def apply_minimal_pattern(dataset):
-    """Apply the minimal pattern '{premise} {hypothesis}?'. Currently supports MNLI."""   
+    """Apply the minimal pattern '{premise} {hypothesis}?'. Currently supports MNLI."""
     def format_batch(batch):
         batch['text'] = [premise + " " + hypothesis + "?" for premise, hypothesis in zip(batch['premise'], batch['hypothesis'])]
         return batch
