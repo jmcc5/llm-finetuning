@@ -82,7 +82,7 @@ def batch_fine_tune(model_name, train_datasets, eval_dataset_in, eval_dataset_ou
     for sample_size, trials in train_datasets.items():
         progress_bar = tqdm(trials, desc=f"{sample_size}-shot")
         for trial_num, dataset in enumerate(progress_bar):
-            model, tokenizer = get_model(model_name)    # Load original model from disk
+            model, tokenizer = get_model(model_name, 'SequenceClassification')  # Load original model from disk
             metrics = fine_tune(model=model, tokenizer=tokenizer, train_dataset=dataset, eval_dataset_in=eval_dataset_in, eval_dataset_out=eval_dataset_out, verbose=False) # Fine-tune
             
             # Save fine-tuned model to disk
