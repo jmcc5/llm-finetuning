@@ -12,11 +12,12 @@ Few-Shot Fine-tuning (FT):
 
 # Import Libraries
 import os
+import numpy as np
 from transformers import TrainingArguments, Trainer, PrinterCallback
 from tqdm.autonotebook import tqdm
 
 # Import Modules
-from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, MemoryUsageCallback, ReformatEvalMetricsCallback
+from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, training_histories_to_csv, MemoryUsageCallback, ReformatEvalMetricsCallback
 from src.model.model import save_model, get_model
 from src.utils import get_project_root
 
@@ -89,24 +90,39 @@ def batch_fine_tune(model_name, train_datasets, eval_dataset_in, eval_dataset_ou
     """Function to perform few-shot fine-tuning with certain sized samples of a certain number of trials"""
     
     results = {size: [] for size in train_datasets.keys()}
+    training_histories = {size: {'train_loss': [], 'val_loss': []} for size in train_datasets.keys()}
     
     # Iterate over few-shot trials
     for sample_size, trials in train_datasets.items():
         progress_bar = tqdm(trials, desc=f"{sample_size}-shot")
+        
         for trial_num, dataset in enumerate(progress_bar):
             model, tokenizer = get_model(model_name, 'SequenceClassification')  # Load original model from disk
-            metrics = fine_tune(model=model, tokenizer=tokenizer, train_dataset=dataset, eval_dataset_in=eval_dataset_in, eval_dataset_out=eval_dataset_out, verbose=False) # Fine-tune
+            metrics, full_training_history = fine_tune(model=model, tokenizer=tokenizer, train_dataset=dataset, eval_dataset_in=eval_dataset_in, eval_dataset_out=eval_dataset_out, val_in_training=True, verbose=False) # Fine-tune
+            
+            results[sample_size].append(metrics)   # Log results
+            
+            # Extract losses from training histories
+            train_loss = [entry['loss'] for entry in full_training_history if 'eval_loss' not in entry]
+            val_loss = [entry['eval_loss'] for entry in full_training_history if 'eval_loss' in entry]
+            
+            # Add training histories to dict
+            trial_history = {
+                'trial': trial_num,
+                'train_loss': train_loss,
+                'val_loss': val_loss
+                }
+            training_histories[sample_size].append(trial_history)
             
             # Save fine-tuned model to disk
             if save_trials:
                 trial_label = f"{model_name}/{sample_size}-shot/{model_name}_{sample_size}-shot_{trial_num}"
                 save_model(model, trial_label)
-                
-            results[sample_size].append(metrics)   # Log results
             
             progress_bar.set_postfix(results[sample_size][trial_num])   # Update progress bar postfix
         
     # Write results to csv
     metrics_to_csv(metrics_dict=results, model_name=model_name, finetuning_method='fewshot')
-        
-    return results
+    training_histories_to_csv(training_histories=training_histories, model_name=model_name, finetuning_method='fewshot')
+
+    return results, training_histories

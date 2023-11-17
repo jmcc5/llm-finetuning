@@ -133,8 +133,7 @@ def compute_metrics(predictions):
 
 def metrics_to_csv(metrics_dict, model_name, finetuning_method):
     """Write a dictionary of metrics to a csv."""
-    
-    filepath = os.path.join(get_project_root(), 'logs', f"{model_name}_{finetuning_method}")
+    filepath = os.path.join(get_project_root(), 'logs', f"{model_name}_{finetuning_method}_metrics.csv")
     with open(filepath, mode='w', newline='') as file:
         writer = csv.writer(file)
 
@@ -150,3 +149,24 @@ def metrics_to_csv(metrics_dict, model_name, finetuning_method):
                 row = [model_name, shots]
                 row.extend(result.values())
                 writer.writerow(row)
+                
+def training_histories_to_csv(training_histories, model_name, finetuning_method):
+    """Write training histories to a csv."""
+    filepath = os.path.join(get_project_root(), 'logs', f"{model_name}_{finetuning_method}_training_history.csv")
+    with open(filepath, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        
+        # Header
+        headers = ['model_name', 'sample_size', 'trial', 'epoch', 'train_loss', 'val_loss']
+        writer.writerow(headers)
+
+        # Rows
+        for sample_size, trials in training_histories.items():
+            for trial in trials:
+                for epoch in range(len(trial['train_loss'])):
+                    row = [model_name, sample_size]
+                    row.extend([trial['trial'],
+                                epoch + 1,
+                                trial['train_loss'][epoch],
+                                trial['val_loss'][epoch]])
+                    writer.writerow(row)
