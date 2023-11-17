@@ -23,7 +23,6 @@ class MemoryUsageCallback(TrainerCallback):
         self.reset_memory_stats()
         self.eval_started = False
         self.is_training = False
-        self.log_call_count = 0
         self.eval_count = 0
         self.val_in_training = val_in_training
 
@@ -46,7 +45,7 @@ class MemoryUsageCallback(TrainerCallback):
 
     def on_log(self, args, state, control, logs=None, **kwargs):
         if self.using_cuda:
-            # Determine if still in training phase  #BUG: doesnt handle the case when we don't validate during training
+            # Determine if still in training phase
             if not self.is_training or control.should_training_stop == True:
                 self.eval_count += 1
                 
@@ -77,7 +76,6 @@ class ReformatEvalMetricsCallback(TrainerCallback):
     def __init__(self):
         self.last_call = None
         self.is_training = False
-        self.log_call_count = 0
         self.eval_count = 0
         
     def on_train_begin(self, args, state, control, **kwargs):
