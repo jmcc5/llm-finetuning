@@ -17,6 +17,7 @@ from src.utils import get_project_root
 class MemoryUsageCallback(TrainerCallback):
     """Callback class to add GPU memory usage metrics to metric dicts."""
     #BUG: memory metric is the same for eval in/out domain
+    #BUG: rework to handle in training validation. last_call flag never gets passed as 'train'
     
     def __init__(self):
         self.using_cuda = torch.cuda.is_available()
@@ -48,24 +49,36 @@ class MemoryUsageCallback(TrainerCallback):
 class ReformatEvalMetricsCallback(TrainerCallback):
     """Callback class to reformat eval metrics labels."""
     
-    def __init__(self):
+    def __init__(self, val_in_training):
         self.last_call = None
+        self.is_training = False
         self.log_call_count = 0
-
-    def on_train_begin(self, args, state, control, **kwargs):
-        self.last_call = 'train'
-        
-    def on_prediction_step(self, args, state, control, **kwargs):
-        self.last_call = 'eval'
+        self.eval_count = 0
+        self.val_in_training = val_in_training    # If we are using in-training validation
 
     def on_log(self, args, state, control, logs=None, **kwargs):
+        # Determine if still in training phase
         self.log_call_count += 1
-        if self.last_call == 'eval':
-            if self.log_call_count == 2:
+        if self.val_in_training:
+            self.is_training = self.log_call_count <= state.num_train_epochs + 1
+        else:
+            self.is_training = self.log_call_count <= 1
+        if not self.is_training:
+            # This assumes that the 1st eval after training is in domain and the 2nd is out of domain
+            self.eval_count += 1
+            if self.eval_count == 1:
                 infix = "in"
-            if self.log_call_count == 3:
+            elif self.eval_count == 2:
                 infix = "out"
+            print(f"log count={self.log_call_count}, eval count={self.eval_count}")
             logs = reformat_eval_metrics(logs, infix)
+            
+def reformat_eval_metrics(logs, infix):
+    """Reformats the metrics dict to 'eval_in_' or 'eval_out_'"""
+    for key in list(logs.keys()):
+        if key.startswith('eval'):
+            new_key = key.replace('eval', f'eval_{infix}')
+            logs[new_key] = logs.pop(key)
 
 def apply_minimal_pattern(dataset):
     """Apply the minimal pattern '{premise} {hypothesis}?'. Currently supports MNLI."""
@@ -115,10 +128,3 @@ def metrics_to_csv(metrics_dict, model_name, finetuning_method):
                 row = [model_name, shots]
                 row.extend(result.values())
                 writer.writerow(row)
-                
-def reformat_eval_metrics(logs, infix):
-    """Reformats the metrics dict to 'eval_in_' or 'eval_out_'"""
-    keys_to_modify = [k for k in logs.keys() if k.startswith('eval')]
-    for key in keys_to_modify:
-        new_key = f"{key[:4]}_{infix}{key[4:]}"
-        logs[new_key] = logs.pop(key)

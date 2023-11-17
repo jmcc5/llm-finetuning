@@ -14,6 +14,7 @@ Few-Shot Fine-tuning (FT):
 import os
 from transformers import TrainingArguments, Trainer, PrinterCallback
 from tqdm.autonotebook import tqdm
+from transformers.utils.notebook import NotebookProgressCallback
 
 # Import Modules
 from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, MemoryUsageCallback, ReformatEvalMetricsCallback
@@ -21,7 +22,7 @@ from src.model.model import save_model, get_model
 from src.utils import get_project_root
 
 
-def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out, verbose=True):
+def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out, val_in_training=True, verbose=True, disable_tqdm=None):
     """Few shot finetuning base method. Modifies model passed in."""
     # Verbalize and tokenize    
     train_dataset = apply_minimal_pattern(train_dataset)  # Apply minimal pattern
@@ -32,18 +33,28 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
     
     eval_dataset_out = apply_minimal_pattern(eval_dataset_out)
     eval_dataset_out = tokenize_dataset(eval_dataset_out, tokenizer, max_length=512)
+    
+    # Validation
+    if len(eval_dataset_out) >= 50:
+        val_samples_size = 10
+    else:
+        val_samples_size = len(eval_dataset_out)
+    validation_dataset = eval_dataset_out.shuffle().select(range(val_samples_size))
 
     # Fine tuning arguments (Mosbach et al.)
     output_dir = os.path.join(get_project_root(), 'logs')
+    if disable_tqdm is None:
+        disable_tqdm = not verbose
     training_args = TrainingArguments(
         log_level='critical' if not verbose else 'passive',
-        disable_tqdm=not verbose,
+        disable_tqdm=disable_tqdm,
         output_dir=output_dir,
         num_train_epochs=40,
         learning_rate=1e-5,
         lr_scheduler_type='linear',
         warmup_ratio = 0.1,
-        per_device_train_batch_size=32,#len(train_dataset),
+        per_device_train_batch_size=32,
+        evaluation_strategy='epoch' if val_in_training else 'no',
         seed=42,
     )
     
@@ -51,9 +62,9 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
         model=model,
         args=training_args,
         train_dataset=train_dataset,
-        eval_dataset=eval_dataset_in,
+        eval_dataset=validation_dataset,
         compute_metrics=compute_metrics,
-        callbacks=[MemoryUsageCallback, ReformatEvalMetricsCallback],
+        callbacks=[MemoryUsageCallback, ReformatEvalMetricsCallback(val_in_training)],
     )
     
     if not verbose:
@@ -64,14 +75,15 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
     train_metrics = train_output.metrics
     
     # Evaluate on in domain
-    eval_metrics_in = trainer.evaluate()
+    eval_metrics_in = trainer.evaluate(eval_dataset=eval_dataset_in)
     
     # Evaluate on OOD
     eval_metrics_out = trainer.evaluate(eval_dataset=eval_dataset_out)
     
     combined_metrics = {**train_metrics, **eval_metrics_in, **eval_metrics_out}
+    training_history = trainer.state.log_history
     
-    return combined_metrics    
+    return combined_metrics, training_history
     
 def batch_fine_tune(model_name, train_datasets, eval_dataset_in, eval_dataset_out, save_trials=False):
     """Function to perform few-shot fine-tuning with certain sized samples of a certain number of trials"""
