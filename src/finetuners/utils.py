@@ -19,50 +19,66 @@ class MemoryUsageCallback(TrainerCallback):
     #BUG: memory metric is the same for eval in/out domain
     #BUG: rework to handle in training validation. last_call flag never gets passed as 'train'
     
-    def __init__(self):
+    def __init__(self, val_in_training=False):
         self.using_cuda = torch.cuda.is_available()
         self.reset_memory_stats()
-        self.last_call = None
         self.eval_started = False
+        self.is_training = False
+        self.log_call_count = 0
+        self.eval_count = 0
+        self.val_in_training = val_in_training    # If we are using in-training validation
 
     def reset_memory_stats(self):
         if self.using_cuda:
             torch.cuda.reset_peak_memory_stats()
 
     def on_train_begin(self, args, state, control, **kwargs):
-        self.last_call = 'train'
         self.reset_memory_stats()
+        self.is_training = True
+    
+    def on_train_end(self, args, state, control, **kwargs):
+        self.is_training = False
         
     def on_prediction_step(self, args, state, control, **kwargs):
-        if not self.eval_started:
+        # Reset memory stats at first eval step, after training is complete
+        if not self.eval_started and not self.is_training:
             self.reset_memory_stats()
             self.eval_started = True
-        self.last_call = 'eval'
 
     def on_log(self, args, state, control, logs=None, **kwargs):
         if self.using_cuda:
-            peak_memory = torch.cuda.max_memory_allocated() / (1024**3)  # Bytes to GB
-            prefix = f"{self.last_call}_"
-            logs[prefix + "peak_memory_gb"] = peak_memory
-            self.eval_started = False
+            # Determine if still in training phase
+            if not self.is_training or control.should_training_stop == True:
+                self.eval_count += 1
+                peak_memory = torch.cuda.max_memory_allocated() / (1024**3)  # Bytes to GB
+                
+                prefix = "train"
+                if self.eval_count > 2:
+                    prefix = "eval"
+                print(f"eval count = {self.eval_count}, prefix = {prefix}")
+                # Skip the last eval step during training
+                if self.eval_count > 1:
+                    logs[prefix + "_peak_memory_gb"] = peak_memory
+                self.eval_started = False
             
 class ReformatEvalMetricsCallback(TrainerCallback):
     """Callback class to reformat eval metrics labels."""
     
-    def __init__(self, val_in_training):
+    def __init__(self, val_in_training=False):
         self.last_call = None
         self.is_training = False
         self.log_call_count = 0
         self.eval_count = 0
         self.val_in_training = val_in_training    # If we are using in-training validation
+        
+    def on_train_begin(self, args, state, control, **kwargs):
+        self.is_training = True
+                
+    def on_train_end(self, args, state, control, **kwargs):
+        self.is_training = False
 
     def on_log(self, args, state, control, logs=None, **kwargs):
         # Determine if still in training phase
-        self.log_call_count += 1
-        if self.val_in_training:
-            self.is_training = self.log_call_count <= state.num_train_epochs + 1
-        else:
-            self.is_training = self.log_call_count <= 1
         if not self.is_training:
             # This assumes that the 1st eval after training is in domain and the 2nd is out of domain
             self.eval_count += 1
@@ -70,7 +86,6 @@ class ReformatEvalMetricsCallback(TrainerCallback):
                 infix = "in"
             elif self.eval_count == 2:
                 infix = "out"
-            print(f"log count={self.log_call_count}, eval count={self.eval_count}")
             logs = reformat_eval_metrics(logs, infix)
             
 def reformat_eval_metrics(logs, infix):
