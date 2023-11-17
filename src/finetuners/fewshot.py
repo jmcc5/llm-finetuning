@@ -14,7 +14,6 @@ Few-Shot Fine-tuning (FT):
 import os
 from transformers import TrainingArguments, Trainer, PrinterCallback
 from tqdm.autonotebook import tqdm
-from transformers.utils.notebook import NotebookProgressCallback
 
 # Import Modules
 from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, MemoryUsageCallback, ReformatEvalMetricsCallback
@@ -46,7 +45,7 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
     if disable_tqdm is None:
         disable_tqdm = not verbose
     training_args = TrainingArguments(
-        log_level='critical' if not verbose else 'passive',
+        log_level='error' if not verbose else 'passive',
         disable_tqdm=disable_tqdm,
         output_dir=output_dir,
         num_train_epochs=40,
@@ -55,6 +54,7 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
         warmup_ratio = 0.1,
         per_device_train_batch_size=32,
         evaluation_strategy='epoch' if val_in_training else 'no',
+        logging_steps=1 if val_in_training else 500,
         seed=42,
     )
     
@@ -64,7 +64,7 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
         train_dataset=train_dataset,
         eval_dataset=validation_dataset,
         compute_metrics=compute_metrics,
-        callbacks=[MemoryUsageCallback, ReformatEvalMetricsCallback(val_in_training)],
+        callbacks=[MemoryUsageCallback(val_in_training), ReformatEvalMetricsCallback],
     )
     
     if not verbose:
@@ -81,7 +81,7 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
     eval_metrics_out = trainer.evaluate(eval_dataset=eval_dataset_out)
     
     combined_metrics = {**train_metrics, **eval_metrics_in, **eval_metrics_out}
-    training_history = trainer.state.log_history
+    training_history = trainer.state.log_history[:-3]
     
     return combined_metrics, training_history
     
