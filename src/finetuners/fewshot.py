@@ -45,6 +45,7 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
     output_dir = os.path.join(get_project_root(), 'logs')
     if disable_tqdm is None:
         disable_tqdm = not verbose
+        
     training_args = TrainingArguments(
         log_level='error' if not verbose else 'passive',
         disable_tqdm=disable_tqdm,
