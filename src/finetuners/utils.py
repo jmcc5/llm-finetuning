@@ -157,7 +157,7 @@ def training_histories_to_csv(training_histories, model_name, finetuning_method)
         writer = csv.writer(file)
         
         # Header
-        headers = ['model_name', 'sample_size', 'trial', 'epoch', 'train_loss', 'val_loss']
+        headers = ['model_name', 'sample_size', 'epoch', 'train_loss', 'val_loss']
         writer.writerow(headers)
 
         # Rows
@@ -165,8 +165,7 @@ def training_histories_to_csv(training_histories, model_name, finetuning_method)
             for trial in trials:
                 for epoch in range(len(trial['train_loss'])):
                     row = [model_name, sample_size]
-                    row.extend([trial['trial'],
-                                epoch + 1,
+                    row.extend([epoch + 1,
                                 trial['train_loss'][epoch],
                                 trial['val_loss'][epoch]])
                     writer.writerow(row)

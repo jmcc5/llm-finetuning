@@ -90,7 +90,7 @@ def batch_fine_tune(model_name, train_datasets, eval_dataset_in, eval_dataset_ou
     """Function to perform few-shot fine-tuning with certain sized samples of a certain number of trials"""
     
     results = {size: [] for size in train_datasets.keys()}
-    training_histories = {size: {'train_loss': [], 'val_loss': []} for size in train_datasets.keys()}
+    training_histories = {size: [] for size in train_datasets.keys()}
     
     # Iterate over few-shot trials
     for sample_size, trials in train_datasets.items():
@@ -108,7 +108,6 @@ def batch_fine_tune(model_name, train_datasets, eval_dataset_in, eval_dataset_ou
             
             # Add training histories to dict
             trial_history = {
-                'trial': trial_num,
                 'train_loss': train_loss,
                 'val_loss': val_loss
                 }
