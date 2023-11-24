@@ -61,16 +61,19 @@ class ReformatEvalMetricsCallback(TrainerCallback):
     def on_log(self, args, state, control, logs=None, **kwargs):
         self.log_call_count += 1
         if self.last_call == 'eval':
-            if self.log_call_count == 2:
+            if self.log_call_count == 1:
                 infix = "in"
-            if self.log_call_count == 3:
+            if self.log_call_count == 2:
                 infix = "out"
             logs = reformat_eval_metrics(logs, infix)
 
-def apply_minimal_pattern(dataset):
+def apply_minimal_pattern(dataset, context = ''):
     """Apply the minimal pattern '{premise} {hypothesis}?'. Currently supports MNLI."""
+    if not context == '':
+        context = context + " "
     def format_batch(batch):
-        batch['text'] = [premise + " " + hypothesis + "?" for premise, hypothesis in zip(batch['premise'], batch['hypothesis'])]
+
+        batch['text'] = [context + premise + " " + hypothesis + "?" for premise, hypothesis in zip(batch['premise'], batch['hypothesis'])]
         return batch
     
     disable_progress_bar() 
@@ -122,3 +125,17 @@ def reformat_eval_metrics(logs, infix):
     for key in keys_to_modify:
         new_key = f"{key[:4]}_{infix}{key[4:]}"
         logs[new_key] = logs.pop(key)
+
+def select_random_subset(dataset, num_shots, seed=123):
+    np.random.seed(seed)
+
+    if num_shots < 1:
+        return [], []
+        
+    indices = np.random.choice(range(len(dataset)), size=num_shots, replace=False)
+
+    return select_subset_by_idx(dataset, indices), indices
+
+def select_subset_by_idx(dataset, indices):
+    subset = dataset.select(indices)
+    return subset
