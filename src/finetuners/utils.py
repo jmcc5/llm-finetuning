@@ -10,6 +10,7 @@ import torch
 import evaluate
 from transformers import TrainerCallback
 from datasets.utils import disable_progress_bar
+from transformers.generation.beam_constraints import DisjunctiveConstraint
 
 # Import Modules
 from src.utils import get_project_root
@@ -103,7 +104,7 @@ def reformat_eval_metrics(logs, infix):
             logs[new_key] = logs.pop(key)
 
 def apply_minimal_pattern(dataset):
-    """Apply the minimal pattern '{premise} {hypothesis}?'. Currently supports MNLI."""
+    """Apply the minimal pattern '{premise} {hypothesis}?'. Currently supports MNLI and HANS."""
     def format_batch(batch):
         batch['text'] = [premise + " " + hypothesis + "?" for premise, hypothesis in zip(batch['premise'], batch['hypothesis'])]
         return batch
@@ -130,6 +131,19 @@ def compute_metrics(predictions):
     logits, labels = predictions
     predictions = np.argmax(logits, axis=-1)
     return metric.compute(predictions=predictions, references=labels)
+
+def compute_metrics_causal(predictions, tokenizer, label_map):
+    """Compute evaluation metrics for a causal language model."""
+    predicted_token_ids, labels = predictions
+    labels = labels.squeeze()
+
+    decoded_predictions = [tokenizer.decode(pred_ids, skip_special_tokens=True) for pred_ids in predicted_token_ids]
+    interpreted_predictions = [decoded_pred.strip().lower() for decoded_pred in decoded_predictions]
+    predicted_labels = [label_map.get(pred.lower(), -1) for pred in interpreted_predictions]
+
+    accuracy_metric = evaluate.load("accuracy")
+
+    return accuracy_metric.compute(predictions=predicted_labels, references=labels)
 
 def metrics_to_csv(metrics_dict, model_name, finetuning_method):
     """Write a dictionary of metrics to a csv."""
@@ -169,3 +183,10 @@ def training_histories_to_csv(training_histories, model_name, finetuning_method)
                                 trial['train_loss'][epoch],
                                 trial['val_loss'][epoch]])
                     writer.writerow(row)
+                    
+def get_yes_no_constraint(tokenizer):
+    yes_token_id = tokenizer.encode("Yes", add_special_tokens=False)
+    no_token_id = tokenizer.encode("No", add_special_tokens=False)
+    force_words_ids = [yes_token_id, no_token_id]
+    constraint = DisjunctiveConstraint(nested_token_ids=force_words_ids)
+    return constraint
