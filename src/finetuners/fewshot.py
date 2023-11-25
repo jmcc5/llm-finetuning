@@ -78,7 +78,7 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
     train_metrics = train_output.metrics
     
     # Evaluate on in domain
-    eval_metrics_in = trainer.evaluate(eval_dataset=eval_dataset_in)
+    eval_metrics_in = trainer.evaluate(eval_dataset=eval_dataset_in)    #TODO: use metrics_key_prefix...
     
     # Evaluate on OOD
     eval_metrics_out = trainer.evaluate(eval_dataset=eval_dataset_out)
