@@ -1,15 +1,17 @@
 """
 Zero-shot model inference as a baseline for comparison with fine-tuned models.
+
+- Each inference instance should be on a single example
 """
 
 # Import Libraries
 import os
 import numpy as np
-from transformers import TrainingArguments, Trainer, PrinterCallback
+from transformers import Seq2SeqTrainingArguments, TrainingArguments, Seq2SeqTrainer, Trainer, PrinterCallback
 from tqdm.autonotebook import tqdm
 
 # Import Modules
-from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, training_histories_to_csv, MemoryUsageCallback, ReformatEvalMetricsCallback
+from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, training_histories_to_csv, get_yes_no_constraint, MemoryUsageCallback, ReformatEvalMetricsCallback
 from src.model.model import save_model, get_model
 from src.utils import get_project_root
 
@@ -17,7 +19,7 @@ from src.utils import get_project_root
 def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, verbose=True, disable_tqdm=None):
     """Zero shot inference."""
     # Verbalize and tokenize
-    eval_dataset_in = apply_minimal_pattern(eval_dataset_in)
+    eval_dataset_in = apply_minimal_pattern(eval_dataset_in)    #TODO: add a new function to handle adding all 
     eval_dataset_in = tokenize_dataset(eval_dataset_in, tokenizer, max_length=512)
     
     eval_dataset_out = apply_minimal_pattern(eval_dataset_out)
@@ -28,29 +30,40 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, verbose=True, 
     if disable_tqdm is None:
         disable_tqdm = not verbose
         
-    training_args = TrainingArguments(
+    training_args = Seq2SeqTrainingArguments(
         log_level='error' if not verbose else 'passive',
         disable_tqdm=disable_tqdm,
         output_dir=output_dir,
-        per_device_train_batch_size=32,
+        per_device_eval_batch_size=32,
+        predict_with_generate=True, # Enable text generation
+        auto_find_batch_size=True,
         seed=42,
     )
     
-    trainer = Trainer(
+    trainer = Seq2SeqTrainer(
         model=model,
         args=training_args,
-        compute_metrics=compute_metrics,
-        callbacks=[ReformatEvalMetricsCallback],
+        # compute_metrics=compute_metrics,
     )
     
     if not verbose:
         trainer.remove_callback(PrinterCallback)
+        
+    yes_no_constraint = get_yes_no_constraint(tokenizer)    # Get constraint
     
     # Evaluate on in domain
-    eval_metrics_in = trainer.evaluate(eval_dataset=eval_dataset_in)
+    eval_metrics_in = trainer.evaluate(eval_dataset=eval_dataset_in.with_format("torch"),
+                                      num_beams=2,
+                                      max_new_tokens=3,  
+                                      # temperature=0.5,
+                                      constraints=[yes_no_constraint])
     
     # Evaluate on OOD
-    eval_metrics_out = trainer.evaluate(eval_dataset=eval_dataset_out)
+    eval_metrics_out = trainer.evaluate(eval_dataset=eval_dataset_out.with_format("torch"),
+                                       num_beams=2,
+                                       max_new_tokens=3,  
+                                       # temperature=0.5,
+                                       constraints=[yes_no_constraint])
     
     combined_metrics = {**eval_metrics_in, **eval_metrics_out}
     
