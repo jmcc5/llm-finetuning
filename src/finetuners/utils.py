@@ -7,6 +7,7 @@ import os
 import csv
 import numpy as np
 import torch
+import torch.nn.functional as F
 import evaluate
 from transformers import TrainerCallback
 from datasets.utils import disable_progress_bar
@@ -114,14 +115,21 @@ def apply_minimal_pattern(dataset):
     
     return dataset
 
-def tokenize_dataset(dataset, tokenizer, max_length=512):
+def tokenize_dataset(dataset, tokenizer, max_length=512, padding_side=None):
     """Tokenize input dataset. Designed for use after minimal pattern is applied."""
+    original_padding_side = tokenizer.padding_side
+    if padding_side is not None:
+        tokenizer.padding_side = padding_side
     def tokenize_function(examples):
-        tokenized_examples = tokenizer(examples['text'], truncation=True, padding='max_length', max_length=max_length)
+        tokenized_examples = tokenizer(examples['text'], 
+                                       truncation=True, 
+                                       padding='max_length', 
+                                       max_length=max_length)
         return tokenized_examples
     
     disable_progress_bar() 
     dataset = dataset.map(tokenize_function, batched=True)
+    tokenizer.padding_side = original_padding_side  # Restor original padding side
     
     return dataset
 
@@ -132,18 +140,25 @@ def compute_metrics(predictions):
     predictions = np.argmax(logits, axis=-1)
     return metric.compute(predictions=predictions, references=labels)
 
-def compute_metrics_causal(predictions, tokenizer, label_map):
-    """Compute evaluation metrics for a causal language model."""
-    predicted_token_ids, labels = predictions
-    labels = labels.squeeze()
+def compute_metrics_causal(predicted_labels, actual_labels):
+    """Compute accuracy and loss for CausalLM predictions."""
+    total_loss = 0
+    correct_predictions = 0
 
-    decoded_predictions = [tokenizer.decode(pred_ids, skip_special_tokens=True) for pred_ids in predicted_token_ids]
-    interpreted_predictions = [decoded_pred.strip().lower() for decoded_pred in decoded_predictions]
-    predicted_labels = [label_map.get(pred.lower(), -1) for pred in interpreted_predictions]
+    for predicted_label, actual_label in zip(predicted_labels, actual_labels):
+        # Convert to tensors
+        predicted_tensor = torch.tensor([predicted_label], dtype=torch.float32)
+        actual_tensor = torch.tensor([actual_label], dtype=torch.float32)
 
-    accuracy_metric = evaluate.load("accuracy")
+        # Binary cross-entropy loss
+        loss = F.binary_cross_entropy_with_logits(predicted_tensor, actual_tensor)
+        total_loss += loss.item()
+        correct_predictions += int(predicted_label == actual_label)
 
-    return accuracy_metric.compute(predictions=predicted_labels, references=labels)
+    accuracy = correct_predictions / len(actual_labels)
+    avg_loss = total_loss / len(actual_labels)
+
+    return avg_loss, accuracy
 
 def metrics_to_csv(metrics_dict, model_name, finetuning_method):
     """Write a dictionary of metrics to a csv."""
@@ -185,8 +200,25 @@ def training_histories_to_csv(training_histories, model_name, finetuning_method)
                     writer.writerow(row)
                     
 def get_yes_no_constraint(tokenizer):
+    """Return a DisjunctiveConstraint constraining text generation to 'Yes' or 'No'."""
     yes_token_id = tokenizer.encode("Yes", add_special_tokens=False)
     no_token_id = tokenizer.encode("No", add_special_tokens=False)
     force_words_ids = [yes_token_id, no_token_id]
     constraint = DisjunctiveConstraint(nested_token_ids=force_words_ids)
     return constraint
+
+def interpret_generated_texts(generated_texts):
+    """Interpret a list of decoded predictions."""
+    predicted_labels = []
+
+    for text in generated_texts:
+        cleaned_text = text.strip().lower().rstrip(',')
+        
+        if 'yes' in cleaned_text:
+            predicted_labels.append(1)  # Yes
+        elif 'no' in cleaned_text:
+            predicted_labels.append(0)  # No
+        else:
+            raise ValueError("Predicted label is not 'Yes' or 'No'.")
+
+    return predicted_labels

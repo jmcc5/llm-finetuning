@@ -6,67 +6,75 @@ Zero-shot model inference as a baseline for comparison with fine-tuned models.
 
 # Import Libraries
 import os
+import time
+import torch
 import numpy as np
 from transformers import Seq2SeqTrainingArguments, TrainingArguments, Seq2SeqTrainer, Trainer, PrinterCallback, DisjunctiveConstraint
 from tqdm.autonotebook import tqdm
 
 # Import Modules
-from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, training_histories_to_csv, get_yes_no_constraint, MemoryUsageCallback, ReformatEvalMetricsCallback
+from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics_causal, metrics_to_csv, training_histories_to_csv, get_yes_no_constraint, interpret_generated_texts, MemoryUsageCallback, ReformatEvalMetricsCallback
 from src.model.model import save_model, get_model
 from src.utils import get_project_root
 
 
 def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, verbose=True, disable_tqdm=None):
     """Zero shot inference."""
-    #TODO: make a zeroshot_niave that just uses SequenceClassification
-    # Verbalize and tokenize
-    eval_dataset_in = apply_minimal_pattern(eval_dataset_in)    #TODO: add a new function to handle adding all 
-    eval_dataset_in = tokenize_dataset(eval_dataset_in, tokenizer, max_length=512)
-    
-    eval_dataset_out = apply_minimal_pattern(eval_dataset_out)
-    eval_dataset_out = tokenize_dataset(eval_dataset_out, tokenizer, max_length=512)
+    def evaluate_dataset(model, tokenizer, dataset, batch_size):
+        start_time = time.time()
+        predicted_labels = []
+        
+        yes_no_constraint = get_yes_no_constraint(tokenizer)
+        
+        progress_bar = tqdm(range(0, len(dataset), batch_size), disable=disable_tqdm)
 
-    # Fine tuning arguments (Mosbach et al.)
-    output_dir = os.path.join(get_project_root(), 'logs')
-    if disable_tqdm is None:
-        disable_tqdm = not verbose
-        
-    training_args = Seq2SeqTrainingArguments(
-        log_level='error' if not verbose else 'passive',
-        disable_tqdm=disable_tqdm,
-        output_dir=output_dir,
-        per_device_eval_batch_size=32,
-        predict_with_generate=True, # Enable text generation
-        auto_find_batch_size=True,
-        seed=42,
-    )
+        for i in progress_bar:
+            # Verbalize and tokenize batch
+            batch_indices = range(i, min(i + batch_size, len(dataset)))
+            batch = dataset.select(batch_indices)
+            batch = apply_minimal_pattern(batch)
+            tokenized_batch = tokenize_dataset(batch, tokenizer, max_length=512, padding_side='left')   # Use left padding for text generation (OPT is decoder only)
+            
+            # Convert to tensors
+            input_ids = torch.tensor(tokenized_batch['input_ids'])
+            attention_mask = torch.tensor(tokenized_batch['attention_mask'])
+
+            gen_tokens = model.generate(
+                input_ids,
+                attention_mask=attention_mask,
+                max_new_tokens=1,
+                constraints=[yes_no_constraint],
+                num_beams=2
+            )
+
+            generated_texts = tokenizer.batch_decode(gen_tokens[:, input_ids.shape[1]:], skip_special_tokens=True)  # Decode only the predicted label
+            predicted_labels_batch = interpret_generated_texts(generated_texts)   # Transform predictions into integers (1: Yes, 2: No)
+
+            predicted_labels.extend(predicted_labels_batch)
+
+        # Calculate metrics for all batches
+        actual_labels = [item['label'] for item in dataset]   # Get actual labels from dataset
+        avg_loss, accuracy = compute_metrics_causal(predicted_labels, actual_labels)
+        end_time = time.time()
+        runtime = end_time - start_time
+        samples_per_second = len(dataset) / runtime
+        metrics = {"loss": avg_loss, 
+                   "accuracy": accuracy, 
+                   "runtime": runtime, 
+                   "samples_per_second": samples_per_second}
+        return metrics
+
     
-    trainer = Seq2SeqTrainer(
-        model=model,
-        args=training_args,
-        # compute_metrics=compute_metrics,
-    )
+    # Evaluate
+    eval_metrics_in = evaluate_dataset(model, tokenizer, eval_dataset_in, batch_size=32)    # In domain
+    if verbose:
+        print(f"In domain eval metrics:\n{eval_metrics_in}")
+    eval_metrics_out = evaluate_dataset(model, tokenizer, eval_dataset_out, batch_size=32)  # OOD
+    if verbose:
+        print(f"Out of domain eval metrics:\n{eval_metrics_out}")
     
-    if not verbose:
-        trainer.remove_callback(PrinterCallback)
-        
-    yes_no_constraint = get_yes_no_constraint(tokenizer)    # Get constraint
-    
-    # Evaluate on in domain
-    eval_metrics_in = trainer.evaluate(eval_dataset=eval_dataset_in.with_format("torch"),
-                                      num_beams=2,
-                                      max_new_tokens=3,  
-                                      # temperature=0.5,
-                                      constraints=[yes_no_constraint])
-    
-    # Evaluate on OOD
-    eval_metrics_out = trainer.evaluate(eval_dataset=eval_dataset_out.with_format("torch"),
-                                       num_beams=2,
-                                       max_new_tokens=3,  
-                                       # temperature=0.5,
-                                       constraints=[yes_no_constraint])
-    
-    combined_metrics = {**eval_metrics_in, **eval_metrics_out}
+    combined_metrics = {f'eval_in_{k}': v for k, v in eval_metrics_in.items()}
+    combined_metrics.update({f'eval_out_{k}': v for k, v in eval_metrics_out.items()})
     
     return combined_metrics
     
