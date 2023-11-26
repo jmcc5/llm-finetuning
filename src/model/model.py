@@ -6,6 +6,7 @@ https://huggingface.co/facebook/opt-350m
 
 # Import Libraries
 import os
+import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModelForCausalLM
 
 # Import modules
@@ -57,6 +58,11 @@ def get_model(model_name, model_type, pretrained=True):
         
     tokenizer = AutoTokenizer.from_pretrained(filepath_tokenizer)
     model = model_class.from_pretrained(filepath_model)
+    
+    # Set device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+    
     return model, tokenizer
 
 def save_model(model, model_name):
