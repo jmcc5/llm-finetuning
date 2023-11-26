@@ -162,6 +162,7 @@ def compute_metrics_causal(predicted_labels, actual_labels):
 
 def metrics_to_csv(metrics_dict, model_name, finetuning_method):
     """Write a dictionary of metrics to a csv."""
+    #TODO: restructure dicts to make more sense... model_name key
     filepath = os.path.join(get_project_root(), 'logs', f"{model_name}_{finetuning_method}_metrics.csv")
     with open(filepath, mode='w', newline='') as file:
         writer = csv.writer(file)
@@ -219,6 +220,6 @@ def interpret_generated_texts(generated_texts):
         elif 'no' in cleaned_text:
             predicted_labels.append(0)  # No
         else:
-            raise ValueError("Predicted label is not 'Yes' or 'No'.")
+            raise ValueError(f"Predicted label '{text}' is not 'Yes' or 'No'.")
 
     return predicted_labels
