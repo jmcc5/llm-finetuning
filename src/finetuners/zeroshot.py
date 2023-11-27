@@ -18,12 +18,11 @@ from src.model.model import save_model, get_model
 from src.utils import get_project_root
 
 
-def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, max_retries=3, verbose=True, disable_tqdm=None):
+def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=True, disable_tqdm=None):
     """Zero shot inference."""
     def evaluate_dataset(model, tokenizer, dataset, batch_size):
         start_time = time.time()
         predicted_labels = []
-        
         yes_no_constraint = get_yes_no_constraint(tokenizer)
         
         progress_bar = tqdm(range(0, len(dataset), batch_size), disable=disable_tqdm)
@@ -39,35 +38,27 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, max_retries=3,
             input_ids = torch.tensor(tokenized_batch['input_ids'], device=model.device)
             attention_mask = torch.tensor(tokenized_batch['attention_mask'], device=model.device)
             
-            is_label_error = False
-            for _ in range(max_retries):
-                generated_tokens = model.generate(
-                    input_ids,
-                    attention_mask=attention_mask,
-                    max_new_tokens=2,
-                    constraints=[yes_no_constraint],
-                    num_beams=2
-                )
+            generated_tokens = model.generate(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                max_new_tokens=3,   # Max tokens to generate in output
+                constraints=[yes_no_constraint],    # Constrain output to 'Yes' or 'No'
+                num_beams=2   # Use minimum number of beams to save compute
+            )
 
-                generated_texts = tokenizer.batch_decode(generated_tokens[:, input_ids.shape[1]:], skip_special_tokens=True)
-                try:
-                    predicted_labels_batch = interpret_generated_texts(generated_texts)
-                    predicted_labels.extend(predicted_labels_batch)
-                    if is_label_error:
-                        print(f"Successful retry with labels {predicted_labels_batch}")
-                    break
-                except ValueError as e: # If generated label does not match 'Yes' or 'No', retry inference
-                    is_label_error = True
-                    if verbose:
-                        print(f"Retry due to error: {e}")
-                    continue
+            generated_texts = tokenizer.batch_decode(generated_tokens[:, input_ids.shape[1]:], skip_special_tokens=True)    # Decode generated tokens
+            actual_labels_batch = [item['label'] for item in batch]   # Get actual labels from batch
+            predicted_labels_batch = interpret_generated_texts(generated_texts, actual_labels_batch)    # Translate 'Yes'/'No' to 0 and 1
+            predicted_labels.extend(predicted_labels_batch) # Log all predicted labels
 
         # Calculate metrics for all batches
         actual_labels = [item['label'] for item in dataset]   # Get actual labels from dataset
-        avg_loss, accuracy = compute_metrics_causal(predicted_labels, actual_labels)
+        avg_loss, accuracy = compute_metrics_causal(predicted_labels, actual_labels)    # Compute loss and accuracy for predictions
         end_time = time.time()
         runtime = end_time - start_time
         samples_per_second = len(dataset) / runtime
+        
+        # Log metrics
         metrics = {
             "loss": avg_loss, 
             "accuracy": accuracy, 
@@ -77,10 +68,10 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, max_retries=3,
         return metrics
     
     # Evaluate - batch size = 8 due to GPU memory constraints
-    eval_metrics_in = evaluate_dataset(model, tokenizer, eval_dataset_in, batch_size=8)    # In domain
+    eval_metrics_in = evaluate_dataset(model, tokenizer, eval_dataset_in, batch_size=batch_size)    # In domain
     if verbose:
         print(f"In domain eval metrics:\n{eval_metrics_in}")
-    eval_metrics_out = evaluate_dataset(model, tokenizer, eval_dataset_out, batch_size=8)  # OOD
+    eval_metrics_out = evaluate_dataset(model, tokenizer, eval_dataset_out, batch_size=batch_size)  # OOD
     if verbose:
         print(f"Out of domain eval metrics:\n{eval_metrics_out}")
     
