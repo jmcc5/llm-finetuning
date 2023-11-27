@@ -208,18 +208,18 @@ def get_yes_no_constraint(tokenizer):
     constraint = DisjunctiveConstraint(nested_token_ids=force_words_ids)
     return constraint
 
-def interpret_generated_texts(generated_texts):
+def interpret_generated_texts(generated_texts, actual_labels):
     """Interpret a list of decoded predictions."""
     predicted_labels = []
 
-    for text in generated_texts:
+    for text, actual_label in zip(generated_texts, actual_labels):
         cleaned_text = text.strip().lower().rstrip(',')
         
         if 'yes' in cleaned_text:
-            predicted_labels.append(1)  # Yes
+            predicted_labels.append(0)  # Yes = entailment
         elif 'no' in cleaned_text:
-            predicted_labels.append(0)  # No
+            predicted_labels.append(1)  # No = contradiction
         else:
-            raise ValueError(f"Predicted label '{text}' is not 'Yes' or 'No'.")
+            predicted_labels.append(1-actual_label) # Unknown output = incorrect label
 
     return predicted_labels
