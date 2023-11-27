@@ -1,0 +1,2 @@
+model_name,sample_size,eval_in_loss,eval_in_accuracy,eval_in_runtime,eval_in_samples_per_second,eval_out_loss,eval_out_accuracy,eval_out_runtime,eval_out_samples_per_second
+opt-125m,50,0.9120318794250488,0.48,85.95151615142822,0.5817233044721477,0.7052158606052399,0.54,95.59918928146362,0.5230169876523717

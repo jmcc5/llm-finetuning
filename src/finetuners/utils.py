@@ -7,9 +7,11 @@ import os
 import csv
 import numpy as np
 import torch
+import torch.nn.functional as F
 import evaluate
 from transformers import TrainerCallback
 from datasets.utils import disable_progress_bar
+from transformers.generation.beam_constraints import DisjunctiveConstraint
 
 # Import Modules
 from src.utils import get_project_root
@@ -103,7 +105,7 @@ def reformat_eval_metrics(logs, infix):
             logs[new_key] = logs.pop(key)
 
 def apply_minimal_pattern(dataset):
-    """Apply the minimal pattern '{premise} {hypothesis}?'. Currently supports MNLI."""
+    """Apply the minimal pattern '{premise} {hypothesis}?'. Currently supports MNLI and HANS."""
     def format_batch(batch):
         batch['text'] = [premise + " " + hypothesis + "?" for premise, hypothesis in zip(batch['premise'], batch['hypothesis'])]
         return batch
@@ -113,14 +115,21 @@ def apply_minimal_pattern(dataset):
     
     return dataset
 
-def tokenize_dataset(dataset, tokenizer, max_length=512):
+def tokenize_dataset(dataset, tokenizer, max_length=512, padding_side=None):
     """Tokenize input dataset. Designed for use after minimal pattern is applied."""
+    original_padding_side = tokenizer.padding_side
+    if padding_side is not None:
+        tokenizer.padding_side = padding_side
     def tokenize_function(examples):
-        tokenized_examples = tokenizer(examples['text'], truncation=True, padding='max_length', max_length=max_length)
+        tokenized_examples = tokenizer(examples['text'], 
+                                       truncation=True, 
+                                       padding='max_length', 
+                                       max_length=max_length)
         return tokenized_examples
     
     disable_progress_bar() 
     dataset = dataset.map(tokenize_function, batched=True)
+    tokenizer.padding_side = original_padding_side  # Restor original padding side
     
     return dataset
 
@@ -131,8 +140,29 @@ def compute_metrics(predictions):
     predictions = np.argmax(logits, axis=-1)
     return metric.compute(predictions=predictions, references=labels)
 
+def compute_metrics_causal(predicted_labels, actual_labels):
+    """Compute accuracy and loss for CausalLM predictions."""
+    total_loss = 0
+    correct_predictions = 0
+
+    for predicted_label, actual_label in zip(predicted_labels, actual_labels):
+        # Convert to tensors
+        predicted_tensor = torch.tensor([predicted_label], dtype=torch.float32)
+        actual_tensor = torch.tensor([actual_label], dtype=torch.float32)
+
+        # Binary cross-entropy loss
+        loss = F.binary_cross_entropy_with_logits(predicted_tensor, actual_tensor)
+        total_loss += loss.item()
+        correct_predictions += int(predicted_label == actual_label)
+
+    accuracy = correct_predictions / len(actual_labels)
+    avg_loss = total_loss / len(actual_labels)
+
+    return avg_loss, accuracy
+
 def metrics_to_csv(metrics_dict, model_name, finetuning_method):
     """Write a dictionary of metrics to a csv."""
+    #TODO: restructure dicts to make more sense... model_name key
     filepath = os.path.join(get_project_root(), 'logs', f"{model_name}_{finetuning_method}_metrics.csv")
     with open(filepath, mode='w', newline='') as file:
         writer = csv.writer(file)
@@ -169,3 +199,27 @@ def training_histories_to_csv(training_histories, model_name, finetuning_method)
                                 trial['train_loss'][epoch],
                                 trial['val_loss'][epoch]])
                     writer.writerow(row)
+                    
+def get_yes_no_constraint(tokenizer):
+    """Return a DisjunctiveConstraint constraining text generation to 'Yes' or 'No'."""
+    yes_token_id = tokenizer.encode("Yes", add_special_tokens=False)
+    no_token_id = tokenizer.encode("No", add_special_tokens=False)
+    force_words_ids = [yes_token_id, no_token_id]
+    constraint = DisjunctiveConstraint(nested_token_ids=force_words_ids)
+    return constraint
+
+def interpret_generated_texts(generated_texts, actual_labels):
+    """Interpret a list of decoded predictions."""
+    predicted_labels = []
+
+    for text, actual_label in zip(generated_texts, actual_labels):
+        cleaned_text = text.strip().lower().rstrip(',')
+        
+        if 'yes' in cleaned_text:
+            predicted_labels.append(0)  # Yes = entailment
+        elif 'no' in cleaned_text:
+            predicted_labels.append(1)  # No = contradiction
+        else:
+            predicted_labels.append(1-actual_label) # Unknown output = incorrect label
+
+    return predicted_labels
