@@ -8,6 +8,7 @@ import csv
 import numpy as np
 import torch
 import torch.nn.functional as F
+import warnings
 import evaluate
 from transformers import TrainerCallback
 from datasets.utils import disable_progress_bar
@@ -25,6 +26,7 @@ class MemoryUsageCallback(TrainerCallback):
         self.reset_memory_stats()
         self.eval_started = False
         self.is_training = False
+        self.log_count = 0
         self.eval_count = 0
         self.val_in_training = val_in_training
 
@@ -49,22 +51,27 @@ class MemoryUsageCallback(TrainerCallback):
         if self.using_cuda:
             # Determine if still in training phase
             if not self.is_training or control.should_training_stop == True:
-                self.eval_count += 1
+                self.log_count += 1
                 
                 # Check if validating during training
                 if self.val_in_training:
-                    is_final_train_log = self.eval_count == 3   # Final training log
-                    is_final_eval_log = self.eval_count > 3 # In and out of domain eval logs
+                    is_final_train_log = self.log_count == 3   # Final training log
+                    is_final_eval_log = self.log_count > 3 # In and out of domain eval logs
                 else:
-                    is_final_train_log = self.eval_count == 1
-                    is_final_eval_log = self.eval_count > 1
+                    is_final_train_log = self.log_count == 1
+                    is_final_eval_log = self.log_count > 1
                 
                 peak_memory = torch.cuda.max_memory_allocated() / (1024**3)  # Bytes to GB
                 
                 if is_final_train_log:
                     prefix = "train"
                 elif is_final_eval_log:
-                    prefix = "eval"
+                    # This assumes that the 1st eval after training is in domain and the 2nd is out of domain
+                    if self.eval_count == 0:
+                        prefix = "eval_in"
+                    else:
+                        prefix = "eval_out"
+                    self.eval_count += 1
                     
                 # Skip the last eval step during training
                 if is_final_train_log or is_final_eval_log:
@@ -76,6 +83,8 @@ class ReformatEvalMetricsCallback(TrainerCallback):
     """Callback class to reformat eval metrics labels."""
     
     def __init__(self):
+        warnings.warn("ReformatEvalMetricsCallback should not be used. Use the built-in parameter for the evaluate method, 'metric_key_value', to add prefixes to eval sets.",
+                      stacklevel=5)
         self.last_call = None
         self.is_training = False
         self.eval_count = 0

@@ -67,7 +67,7 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
         train_dataset=train_dataset,
         eval_dataset=validation_dataset,
         compute_metrics=compute_metrics,
-        callbacks=[MemoryUsageCallback(val_in_training), ReformatEvalMetricsCallback],
+        callbacks=[MemoryUsageCallback(val_in_training)],
     )
     
     if not verbose:
@@ -78,10 +78,10 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
     train_metrics = train_output.metrics
     
     # Evaluate on in domain
-    eval_metrics_in = trainer.evaluate(eval_dataset=eval_dataset_in)    #TODO: use metrics_key_prefix...
+    eval_metrics_in = trainer.evaluate(eval_dataset=eval_dataset_in, metric_key_prefix='eval_in')
     
     # Evaluate on OOD
-    eval_metrics_out = trainer.evaluate(eval_dataset=eval_dataset_out)
+    eval_metrics_out = trainer.evaluate(eval_dataset=eval_dataset_out, metric_key_prefix='eval_out')
     
     combined_metrics = {**train_metrics, **eval_metrics_in, **eval_metrics_out}
     training_history = trainer.state.log_history[:-3]
