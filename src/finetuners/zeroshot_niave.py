@@ -1,92 +1,74 @@
 """
-Few-shot fine-tuning method from “Few-shot Fine-tuning vs. In-context Learning: A Fair Comparison and Evaluation”, Mosbach et al.
-https://aclanthology.org/2023.findings-acl.779.pdf
-https://huggingface.co/docs/transformers/training
+Zero-shot model inference as a baseline for comparison with fine-tuned models.
 
-Few-Shot Fine-tuning (FT):
-- Few-shot: randomly sampled n in {2, 16, 32, 64, 128} examples.
-- Minimal pattern: append question mark to each example.
-- Verbalizer: "Yes" and "No" labels for NLI and QQP tasks.
-- Fine-tuning: 40 epochs, learning rate of 1e-5, linear increase for initial 10% of steps, then constant.
+- Each inference instance should be on a single example
 """
 
 # Import Libraries
 import os
 import numpy as np
-from transformers import TrainingArguments, Trainer, PrinterCallback
+from transformers import Seq2SeqTrainingArguments, TrainingArguments, Seq2SeqTrainer, Trainer, PrinterCallback, DisjunctiveConstraint
 from tqdm.autonotebook import tqdm
 
 # Import Modules
-from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, training_histories_to_csv, MemoryUsageCallback, ReformatEvalMetricsCallback
+from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, training_histories_to_csv, get_yes_no_constraint, MemoryUsageCallback, ReformatEvalMetricsCallback
 from src.model.model import save_model, get_model
 from src.utils import get_project_root
 
 
-def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out, val_in_training=True, verbose=True, disable_tqdm=None):
-    """Few shot finetuning base method. Modifies model passed in."""
-    # Verbalize and tokenize    
-    train_dataset = apply_minimal_pattern(train_dataset)  # Apply minimal pattern
-    train_dataset = tokenize_dataset(train_dataset, tokenizer, max_length=512)  # Tokenize
-    
-    eval_dataset_in = apply_minimal_pattern(eval_dataset_in)
+def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, verbose=True, disable_tqdm=None):
+    """Zero shot inference."""
+    #TODO: make a zeroshot_niave that just uses SequenceClassification
+    # Verbalize and tokenize
+    eval_dataset_in = apply_minimal_pattern(eval_dataset_in)    #TODO: add a new function to handle adding all 
     eval_dataset_in = tokenize_dataset(eval_dataset_in, tokenizer, max_length=512)
     
     eval_dataset_out = apply_minimal_pattern(eval_dataset_out)
     eval_dataset_out = tokenize_dataset(eval_dataset_out, tokenizer, max_length=512)
-    
-    # Validation
-    if len(eval_dataset_out) >= 50:
-        val_samples_size = 10
-    else:
-        val_samples_size = len(eval_dataset_out)
-    validation_dataset = eval_dataset_out.shuffle().select(range(val_samples_size))
 
     # Fine tuning arguments (Mosbach et al.)
     output_dir = os.path.join(get_project_root(), 'logs')
     if disable_tqdm is None:
         disable_tqdm = not verbose
         
-    training_args = TrainingArguments(
+    training_args = Seq2SeqTrainingArguments(
         log_level='error' if not verbose else 'passive',
         disable_tqdm=disable_tqdm,
         output_dir=output_dir,
-        num_train_epochs=40,
-        learning_rate=1e-5,
-        lr_scheduler_type='linear',
-        warmup_ratio = 0.1,
-        per_device_train_batch_size=32,
         per_device_eval_batch_size=32,
-        evaluation_strategy='epoch' if val_in_training else 'no',
-        logging_steps=1 if val_in_training else 500,
+        predict_with_generate=True, # Enable text generation
+        auto_find_batch_size=True,
         seed=42,
     )
     
-    trainer = Trainer(
+    trainer = Seq2SeqTrainer(
         model=model,
         args=training_args,
-        train_dataset=train_dataset,
-        eval_dataset=validation_dataset,
-        compute_metrics=compute_metrics,
-        callbacks=[MemoryUsageCallback(val_in_training), ReformatEvalMetricsCallback],
+        # compute_metrics=compute_metrics,
     )
     
     if not verbose:
         trainer.remove_callback(PrinterCallback)
-
-    # Train on in domain
-    train_output = trainer.train()
-    train_metrics = train_output.metrics
+        
+    yes_no_constraint = get_yes_no_constraint(tokenizer)    # Get constraint
     
     # Evaluate on in domain
-    eval_metrics_in = trainer.evaluate(eval_dataset=eval_dataset_in)    #TODO: use metrics_key_prefix...
+    eval_metrics_in = trainer.evaluate(eval_dataset=eval_dataset_in.with_format("torch"),
+                                      num_beams=2,
+                                      max_new_tokens=3,  
+                                      # temperature=0.5,
+                                      constraints=[yes_no_constraint])
     
     # Evaluate on OOD
-    eval_metrics_out = trainer.evaluate(eval_dataset=eval_dataset_out)
+    eval_metrics_out = trainer.evaluate(eval_dataset=eval_dataset_out.with_format("torch"),
+                                       num_beams=2,
+                                       max_new_tokens=3,  
+                                       # temperature=0.5,
+                                       constraints=[yes_no_constraint])
     
-    combined_metrics = {**train_metrics, **eval_metrics_in, **eval_metrics_out}
-    training_history = trainer.state.log_history[:-3]
+    combined_metrics = {**eval_metrics_in, **eval_metrics_out}
     
-    return combined_metrics, training_history
+    return combined_metrics
     
 def batch_fine_tune(model_name, train_datasets, eval_dataset_in, eval_dataset_out, save_trials=False):
     """Function to perform few-shot fine-tuning with certain sized samples of a certain number of trials"""
