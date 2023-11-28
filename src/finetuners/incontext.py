@@ -11,91 +11,101 @@ In-Context Learning (ICL):
 
 # Import Libraries
 import os
-from transformers import TrainingArguments, Trainer, PrinterCallback
+import time
+import torch
+import numpy as np
+from transformers import Seq2SeqTrainingArguments, TrainingArguments, Seq2SeqTrainer, Trainer, PrinterCallback, DisjunctiveConstraint
 from tqdm.autonotebook import tqdm
 
 # Import Modules
-from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, MemoryUsageCallback, ReformatEvalMetricsCallback, select_random_subset, select_subset_by_idx
+from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics_causal, metrics_to_csv, select_random_subset, select_subset_by_idx, get_yes_no_constraint, interpret_generated_texts, MemoryUsageCallback, ReformatEvalMetricsCallback
 from src.model.model import save_model, get_model
 from src.utils import get_project_root
 
-def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out, verbose=True):
+def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=True, disable_tqdm=None):
     """In-context learning base method."""
-    # Create in-context learning prompt from training data
+    def evaluate_dataset(model, tokenizer, dataset, batch_size):
+        start_time = time.time()
+        predicted_labels = []
+        yes_no_constraint = get_yes_no_constraint(tokenizer)
+        
+        progress_bar = tqdm(range(0, len(dataset), batch_size), disable=disable_tqdm)
 
-    context, context_indices = create_few_shot_context(eval_dataset_in)
+        for i in progress_bar:
+            # Create in-context learning prompt from training data
 
-    # Verbalize and Tokenize
-    train_dataset = apply_minimal_pattern(train_dataset, context)  # Apply minimal pattern
-    train_dataset = tokenize_dataset(train_dataset, tokenizer, max_length=512)  # Tokenize
-    
-    eval_dataset_in = apply_minimal_pattern(eval_dataset_in)
-    eval_dataset_in = tokenize_dataset(eval_dataset_in, tokenizer, max_length=512)
-    
-    eval_dataset_out = apply_minimal_pattern(eval_dataset_out)
-    eval_dataset_out = tokenize_dataset(eval_dataset_out, tokenizer, max_length=512)
+            context, context_indices = create_few_shot_context(eval_dataset_in)
 
-    # Fine tuning arguments (Mosbach et al.)
-    output_dir = os.path.join(get_project_root(), 'logs')
-    training_args = TrainingArguments(
-        log_level='critical' if not verbose else 'passive',
-        disable_tqdm=not verbose,
-        output_dir=output_dir,
-        num_train_epochs=40,
-        learning_rate=1e-5,
-        lr_scheduler_type='linear',
-        warmup_ratio = 0.1,
-        per_device_train_batch_size=32,#len(train_dataset),
-        seed=42,
-    )
+            # Verbalize and tokenize batch
+            batch_indices = range(i, min(i + batch_size, len(dataset)))
+            batch = dataset.select(batch_indices)
+            batch = apply_minimal_pattern(batch, context)
+            tokenized_batch = tokenize_dataset(batch, tokenizer, max_length=512, padding_side='left')   # Use left padding for text generation (OPT is decoder only)
+            
+            # Convert to tensors
+            input_ids = torch.tensor(tokenized_batch['input_ids'], device=model.device)
+            attention_mask = torch.tensor(tokenized_batch['attention_mask'], device=model.device)
+            
+            generated_tokens = model.generate(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                max_new_tokens=3,   # Max tokens to generate in output
+                constraints=[yes_no_constraint],    # Constrain output to 'Yes' or 'No'
+                num_beams=2   # Use minimum number of beams to save compute
+            )
 
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=None,
-        eval_dataset=eval_dataset_in,
-        compute_metrics=compute_metrics,
-        callbacks=[MemoryUsageCallback, ReformatEvalMetricsCallback],
-    )
-    
-    if not verbose:
-        trainer.remove_callback(PrinterCallback)
+            generated_texts = tokenizer.batch_decode(generated_tokens[:, input_ids.shape[1]:], skip_special_tokens=True)    # Decode generated tokens
+            actual_labels_batch = [item['label'] for item in batch]   # Get actual labels from batch
+            predicted_labels_batch = interpret_generated_texts(generated_texts, actual_labels_batch)    # Translate 'Yes'/'No' to 0 and 1
+            predicted_labels.extend(predicted_labels_batch) # Log all predicted labels
 
-    # Evaluate on in domain
-    eval_metrics_in = trainer.evaluate()
-    
-    # Evaluate on OOD
-    eval_metrics_out = trainer.evaluate(eval_dataset=eval_dataset_out)
+        # Calculate metrics for all batches
+        actual_labels = [item['label'] for item in dataset]   # Get actual labels from dataset
+        avg_loss, accuracy = compute_metrics_causal(predicted_labels, actual_labels)    # Compute loss and accuracy for predictions
+        end_time = time.time()
+        runtime = end_time - start_time
+        samples_per_second = len(dataset) / runtime
+        
+        # Log metrics
+        metrics = {
+            "loss": avg_loss, 
+            "accuracy": accuracy, 
+            "runtime": runtime, 
+            "samples_per_second": samples_per_second
+        }
+        return metrics
 
-    combined_metrics = {**eval_metrics_in, **eval_metrics_out}
+    # Evaluate - batch size = 8 due to GPU memory constraints
+    eval_metrics_in = evaluate_dataset(model, tokenizer, eval_dataset_in, batch_size=batch_size)    # In domain
+    if verbose:
+        print(f"In domain eval metrics:\n{eval_metrics_in}")
+    eval_metrics_out = evaluate_dataset(model, tokenizer, eval_dataset_out, batch_size=batch_size)  # OOD
+    if verbose:
+        print(f"Out of domain eval metrics:\n{eval_metrics_out}")
+
+    combined_metrics = {f'eval_in_{k}': v for k, v in eval_metrics_in.items()}
+    combined_metrics.update({f'eval_out_{k}': v for k, v in eval_metrics_out.items()})
     
     return combined_metrics
 
-def batch_fine_tune(model_name, train_datasets, eval_dataset_in, eval_dataset_out, save_trials=False):
-    """Function to perform in-context learning with certain sized samples of a certain number of trials"""
+def batch_evaluate(model_name, eval_dataset_in, eval_dataset_out):
+    """Function to perform zero-shot evaluation and log results."""
+    # Load the model and tokenizer
+    model, tokenizer = get_model(model_name, 'CausalLM', pretrained=True)
+
+    # Evaluate the model
+    eval_metrics = evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, verbose=False)
+
+    # Create results dict
+    sample_size = str(len(eval_dataset_in))
+    metrics_dict = {
+        sample_size: [eval_metrics]
+    }
     
-    results = {size: [] for size in train_datasets.keys()}
-    
-    # Iterate over few-shot trials
-    for sample_size, trials in train_datasets.items():
-        progress_bar = tqdm(trials, desc=f"{sample_size}-shot")
-        for trial_num, dataset in enumerate(progress_bar):
-            model, tokenizer = get_model(model_name, 'SequenceClassification')  # Load original model from disk
-            metrics = fine_tune(model=model, tokenizer=tokenizer, train_dataset=dataset, eval_dataset_in=eval_dataset_in, eval_dataset_out=eval_dataset_out, verbose=False) # Fine-tune
-            
-            # Save fine-tuned model to disk
-            if save_trials:
-                trial_label = f"{model_name}/{sample_size}-shot/{model_name}_{sample_size}-shot_{trial_num}"
-                save_model(model, trial_label)
-                
-            results[sample_size].append(metrics)   # Log results
-            
-            progress_bar.set_postfix(results[sample_size][trial_num])   # Update progress bar postfix
-        
     # Write results to csv
-    metrics_to_csv(metrics_dict=results, model_name=model_name, finetuning_method='fewshot')
-        
-    return results
+    metrics_to_csv(metrics_dict=metrics_dict, model_name=model_name, finetuning_method='zeroshot')
+
+    return eval_metrics
 
 def create_few_shot_context(dataset, description=None, seperator=",", from_indices=None):
     """Create context for dataset."""
@@ -103,7 +113,7 @@ def create_few_shot_context(dataset, description=None, seperator=",", from_indic
     id_to_token = ['entailment', 'contradiction']
     # select samples to construct context from
     if from_indices is None:
-        demos, indices = select_random_subset(dataset, 16)
+        demos, indices = select_random_subset(dataset, 8)
     else:
         demos, indices = select_subset_by_idx(dataset, from_indices)
 

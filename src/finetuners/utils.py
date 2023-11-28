@@ -198,7 +198,27 @@ def training_histories_to_csv(training_histories, finetuning_method):
             for epoch, (train_loss, val_loss) in enumerate(zip(history['train_loss'], history['val_loss']), start=1):
                 row = [history['model_name'], history['sample_size'], epoch+1, train_loss, val_loss]
                 writer.writerow(row)
-                    
+
+def training_histories_to_csv(training_histories, model_name, finetuning_method):
+    """Write training histories to a csv."""
+    filepath = os.path.join(get_project_root(), 'logs', f"{model_name}_{finetuning_method}_training_history.csv")
+    with open(filepath, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        
+        # Header
+        headers = ['model_name', 'sample_size', 'epoch', 'train_loss', 'val_loss']
+        writer.writerow(headers)
+
+        # Rows
+        for sample_size, trials in training_histories.items():
+            for trial in trials:
+                for epoch in range(len(trial['train_loss'])):
+                    row = [model_name, sample_size]
+                    row.extend([epoch + 1,
+                                trial['train_loss'][epoch],
+                                trial['val_loss'][epoch]])
+                    writer.writerow(row)
+                
 def get_yes_no_constraint(tokenizer):
     """Return a DisjunctiveConstraint constraining text generation to 'Yes' or 'No'."""
     yes_token_id = tokenizer.encode("Yes", add_special_tokens=False)
@@ -222,3 +242,24 @@ def interpret_generated_texts(generated_texts, actual_labels):
             predicted_labels.append(1-actual_label) # Unknown output = incorrect label
 
     return predicted_labels
+
+def reformat_eval_metrics(logs, infix):
+    """Reformats the metrics dict to 'eval_in_' or 'eval_out_'"""
+    keys_to_modify = [k for k in logs.keys() if k.startswith('eval')]
+    for key in keys_to_modify:
+        new_key = f"{key[:4]}_{infix}{key[4:]}"
+        logs[new_key] = logs.pop(key)
+
+def select_random_subset(dataset, num_shots, seed=123):
+    np.random.seed(seed)
+
+    if num_shots < 1:
+        return [], []
+        
+    indices = np.random.choice(range(len(dataset)), size=num_shots, replace=False)
+
+    return select_subset_by_idx(dataset, indices), indices
+
+def select_subset_by_idx(dataset, indices):
+    subset = dataset.select(indices)
+    return subset
