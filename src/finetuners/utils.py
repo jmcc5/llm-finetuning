@@ -169,29 +169,24 @@ def compute_metrics_causal(predicted_labels, actual_labels):
 
     return avg_loss, accuracy
 
-def metrics_to_csv(metrics_dict, model_name, finetuning_method):
-    """Write a dictionary of metrics to a csv."""
+def metrics_to_csv(metrics, finetuning_method):
+    """Write a list of metrics dictionaries to a csv."""
     #TODO: restructure dicts to make more sense... model_name key
-    filepath = os.path.join(get_project_root(), 'logs', f"{model_name}_{finetuning_method}_metrics.csv")
+    filepath = os.path.join(get_project_root(), 'logs', f"{finetuning_method}_metrics.csv")
     with open(filepath, mode='w', newline='') as file:
         writer = csv.writer(file)
 
         # Header
-        headers = ['model_name', 'sample_size']
-        sample_size_keys = list(metrics_dict[next(iter(metrics_dict))][0].keys())
-        headers.extend(sample_size_keys)
+        headers = metrics[0].keys()
         writer.writerow(headers)
 
         # Rows
-        for shots, results in metrics_dict.items():
-            for result in results:
-                row = [model_name, shots]
-                row.extend(result.values())
-                writer.writerow(row)
+        for metrics in metrics:
+            writer.writerow(metrics.values())
                 
-def training_histories_to_csv(training_histories, model_name, finetuning_method):
-    """Write training histories to a csv."""
-    filepath = os.path.join(get_project_root(), 'logs', f"{model_name}_{finetuning_method}_training_history.csv")
+def training_histories_to_csv(training_histories, finetuning_method):
+    """Write a list of training history dicts to a csv."""
+    filepath = os.path.join(get_project_root(), 'logs', f"{finetuning_method}_training_history.csv")
     with open(filepath, mode='w', newline='') as file:
         writer = csv.writer(file)
         
@@ -200,14 +195,10 @@ def training_histories_to_csv(training_histories, model_name, finetuning_method)
         writer.writerow(headers)
 
         # Rows
-        for sample_size, trials in training_histories.items():
-            for trial in trials:
-                for epoch in range(len(trial['train_loss'])):
-                    row = [model_name, sample_size]
-                    row.extend([epoch + 1,
-                                trial['train_loss'][epoch],
-                                trial['val_loss'][epoch]])
-                    writer.writerow(row)
+        for history in training_histories:
+            for epoch, (train_loss, val_loss) in enumerate(zip(history['train_loss'], history['val_loss']), start=1):
+                row = [history['model_name'], history['sample_size'], epoch, train_loss, val_loss]
+                writer.writerow(row)
                     
 def get_yes_no_constraint(tokenizer):
     """Return a DisjunctiveConstraint constraining text generation to 'Yes' or 'No'."""
