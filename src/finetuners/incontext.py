@@ -19,10 +19,9 @@ from tqdm.autonotebook import tqdm
 
 # Import Modules
 from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics_causal, metrics_to_csv, select_random_subset, select_subset_by_idx, get_yes_no_constraint, interpret_generated_texts, MemoryUsageCallback, ReformatEvalMetricsCallback
-from src.model.model import save_model, get_model
-from src.utils import get_project_root
+from src.model.model import get_model
 
-def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=True, disable_tqdm=None):
+def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, context, batch_size=8, verbose=True, disable_tqdm=None):
     """In-context learning base method."""
     def evaluate_dataset(model, tokenizer, dataset, batch_size):
         start_time = time.time()
@@ -32,10 +31,6 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
         progress_bar = tqdm(range(0, len(dataset), batch_size), disable=disable_tqdm)
 
         for i in progress_bar:
-            # Create in-context learning prompt from training data
-
-            context, context_indices = create_few_shot_context(eval_dataset_in)
-
             # Verbalize and tokenize batch
             batch_indices = range(i, min(i + batch_size, len(dataset)))
             batch = dataset.select(batch_indices)
@@ -88,34 +83,38 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
     
     return combined_metrics
 
-def batch_evaluate(model_name, eval_dataset_in, eval_dataset_out):
-    """Function to perform zero-shot evaluation and log results."""
+def batch_evaluate(model_name, train_datasets, eval_dataset_in, eval_dataset_out):
+    """Function to perform ICL evaluation and log results."""
+
+    results = {size: [] for size in train_datasets.keys()}
+
     # Load the model and tokenizer
     model, tokenizer = get_model(model_name, 'CausalLM', pretrained=True)
-
     # Evaluate the model
-    eval_metrics = evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, verbose=False)
 
-    # Create results dict
-    sample_size = str(len(eval_dataset_in))
-    metrics_dict = {
-        sample_size: [eval_metrics]
-    }
+    for sample_size, trials in train_datasets.items():
+        progress_bar = tqdm(trials, desc=f"{sample_size}-shot")
+
+        for trial_num, dataset in enumerate(progress_bar):
+
+            # Create in-context learning prompt from training data
+            context = create_few_shot_context(dataset)
+            eval_metrics = evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, context, verbose=False)
+            results[sample_size].append(eval_metrics)
+            
+            progress_bar.set_postfix(results[sample_size][trial_num])
+
     
     # Write results to csv
-    metrics_to_csv(metrics_dict=metrics_dict, model_name=model_name, finetuning_method='zeroshot')
+    metrics_to_csv(metrics_dict=results, model_name=model_name, finetuning_method='icl')
 
     return eval_metrics
 
-def create_few_shot_context(dataset, description=None, seperator=",", from_indices=None):
+def create_few_shot_context(demos, description=None, seperator=","):
     """Create context for dataset."""
     # Hardcoded verbalizer for lables:
     id_to_token = ['entailment', 'contradiction']
     # select samples to construct context from
-    if from_indices is None:
-        demos, indices = select_random_subset(dataset, 8)
-    else:
-        demos, indices = select_subset_by_idx(dataset, from_indices)
 
     # create context
     context = "" if description == None else f"{description}{seperator}"
@@ -124,4 +123,4 @@ def create_few_shot_context(dataset, description=None, seperator=",", from_indic
         formatted_sample = f"{sample['premise']} {sample['hypothesis']} ?"
         context += f"{formatted_sample}{id_to_token[sample['label']]}{seperator}"
 
-    return context, indices
+    return context
