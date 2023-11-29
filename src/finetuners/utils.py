@@ -113,10 +113,13 @@ def reformat_eval_metrics(logs, infix):
             new_key = key.replace('eval', f'eval_{infix}')
             logs[new_key] = logs.pop(key)
 
-def apply_minimal_pattern(dataset):
+def apply_minimal_pattern(dataset, context = ''):
     """Apply the minimal pattern '{premise} {hypothesis}?'. Currently supports MNLI and HANS."""
+    if not context == '':
+        context = context + " "
     def format_batch(batch):
-        batch['text'] = [premise + " " + hypothesis + "?" for premise, hypothesis in zip(batch['premise'], batch['hypothesis'])]
+
+        batch['text'] = [context + premise + " " + hypothesis + "?" for premise, hypothesis in zip(batch['premise'], batch['hypothesis'])]
         return batch
     
     disable_progress_bar() 
@@ -180,6 +183,7 @@ def metrics_to_csv(metrics, finetuning_method):
         writer.writerow(headers)
 
         # Rows
+<<<<<<< HEAD
         for metrics in metrics:
             writer.writerow(metrics.values())
                 
@@ -197,6 +201,12 @@ def training_histories_to_csv(training_histories, finetuning_method):
         for history in training_histories:
             for epoch, (train_loss, val_loss) in enumerate(zip(history['train_loss'], history['val_loss']), start=1):
                 row = [history['model_name'], history['sample_size'], epoch+1, train_loss, val_loss]
+=======
+        for shots, results in metrics_dict.items():
+            for result in results:
+                row = [model_name, shots]
+                row.extend(result.values())
+>>>>>>> bb643c07a81ad80536e5d015ababf9f27b075e05
                 writer.writerow(row)
 
 def training_histories_to_csv(training_histories, model_name, finetuning_method):
