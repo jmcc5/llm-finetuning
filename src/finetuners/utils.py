@@ -183,31 +183,8 @@ def metrics_to_csv(metrics, finetuning_method):
         writer.writerow(headers)
 
         # Rows
-<<<<<<< HEAD
         for metrics in metrics:
             writer.writerow(metrics.values())
-                
-def training_histories_to_csv(training_histories, finetuning_method):
-    """Write a list of training history dicts to a csv."""
-    filepath = os.path.join(get_project_root(), 'logs', f"{finetuning_method}_training_history.csv")
-    with open(filepath, mode='w', newline='') as file:
-        writer = csv.writer(file)
-        
-        # Header
-        headers = ['model_name', 'sample_size', 'epoch', 'train_loss', 'val_loss']
-        writer.writerow(headers)
-
-        # Rows
-        for history in training_histories:
-            for epoch, (train_loss, val_loss) in enumerate(zip(history['train_loss'], history['val_loss']), start=1):
-                row = [history['model_name'], history['sample_size'], epoch+1, train_loss, val_loss]
-=======
-        for shots, results in metrics_dict.items():
-            for result in results:
-                row = [model_name, shots]
-                row.extend(result.values())
->>>>>>> bb643c07a81ad80536e5d015ababf9f27b075e05
-                writer.writerow(row)
 
 def training_histories_to_csv(training_histories, model_name, finetuning_method):
     """Write training histories to a csv."""
