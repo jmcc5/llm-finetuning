@@ -52,7 +52,7 @@ def plot_in_out_domain(logfile, metric):
     plt.tight_layout()
     plt.show()
     
-def plot_learning_curves(logfile, subplot=True):
+def plot_learning_curves(logfile, subplot_cols=None):
     """Plot learning curves from a log file"""
     # Read log file
     logfilepath = os.path.join(get_project_root(), 'logs', logfile)
@@ -63,10 +63,10 @@ def plot_learning_curves(logfile, subplot=True):
     sample_sizes = log_df['sample_size'].unique()
     color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
     
-    if subplot:
+    if subplot_cols is not None:
         # Calculate the number of rows for subplots
-        num_rows = np.ceil(len(sample_sizes) / 3).astype(int)
-        fig, axes = plt.subplots(num_rows, 3, figsize=(15, num_rows * 5))
+        num_rows = np.ceil(len(sample_sizes) / subplot_cols).astype(int)
+        fig, axes = plt.subplots(num_rows, subplot_cols, figsize=(15, num_rows * 5))
         axes = axes.flatten()
 
         for i, size in enumerate(sample_sizes):

@@ -171,7 +171,6 @@ def compute_metrics_causal(predicted_labels, actual_labels):
 
 def metrics_to_csv(metrics, finetuning_method):
     """Write a list of metrics dictionaries to a csv."""
-    #TODO: restructure dicts to make more sense... model_name key
     filepath = os.path.join(get_project_root(), 'logs', f"{finetuning_method}_metrics.csv")
     with open(filepath, mode='w', newline='') as file:
         writer = csv.writer(file)
@@ -197,7 +196,7 @@ def training_histories_to_csv(training_histories, finetuning_method):
         # Rows
         for history in training_histories:
             for epoch, (train_loss, val_loss) in enumerate(zip(history['train_loss'], history['val_loss']), start=1):
-                row = [history['model_name'], history['sample_size'], epoch, train_loss, val_loss]
+                row = [history['model_name'], history['sample_size'], epoch+1, train_loss, val_loss]
                 writer.writerow(row)
                     
 def get_yes_no_constraint(tokenizer):

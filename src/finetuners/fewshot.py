@@ -17,7 +17,7 @@ from transformers import TrainingArguments, Trainer, PrinterCallback
 from tqdm.autonotebook import tqdm
 
 # Import Modules
-from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, training_histories_to_csv, MemoryUsageCallback, ReformatEvalMetricsCallback
+from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, training_histories_to_csv, MemoryUsageCallback
 from src.model.model import save_model, get_model
 from src.utils import get_project_root
 
@@ -54,8 +54,8 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
         learning_rate=1e-5,
         lr_scheduler_type='linear',
         warmup_ratio = 0.1,
-        per_device_train_batch_size=32,
-        per_device_eval_batch_size=32,
+        per_device_train_batch_size=8,
+        per_device_eval_batch_size=8,
         evaluation_strategy='epoch' if val_in_training else 'no',
         logging_steps=1 if val_in_training else 500,
         seed=42,
@@ -90,9 +90,8 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
     
 def batch_fine_tune(model_names, train_datasets, eval_dataset_in, eval_dataset_out, save_trials=False):
     """Function to perform few-shot fine-tuning with certain sized samples of a certain number of trials"""
-    #TODO: change metrics and training histories to a flat list of dictionaries
     
-    results = []
+    metrics = []
     training_histories = []
     
     # Iterate over models
@@ -103,34 +102,41 @@ def batch_fine_tune(model_names, train_datasets, eval_dataset_in, eval_dataset_o
             
             for trial_num, dataset in enumerate(progress_bar):
                 model, tokenizer = get_model(model_name, 'SequenceClassification')  # Load original model from disk
-                metrics, full_training_history = fine_tune(model=model, tokenizer=tokenizer, train_dataset=dataset, eval_dataset_in=eval_dataset_in, eval_dataset_out=eval_dataset_out, val_in_training=True, verbose=False) # Fine-tune
+                metrics_trial, full_training_history = fine_tune(model=model, 
+                                                                 tokenizer=tokenizer, 
+                                                                 train_dataset=dataset, 
+                                                                 eval_dataset_in=eval_dataset_in, 
+                                                                 eval_dataset_out=eval_dataset_out, 
+                                                                 val_in_training=True, 
+                                                                 verbose=False) # Fine-tune
                 
-                metrics['model_name'] = model_name  #BUG: what order will these be in?
-                metrics['sample_size'] = sample_size
-                results.append(metrics)  
+                metrics_trial = {'model_name': model_name,
+                                 'sample_size': sample_size,
+                                 **metrics_trial}
+                metrics.append(metrics_trial)
                 
                 # Extract losses from training histories
                 train_loss = [entry['loss'] for entry in full_training_history if 'eval_loss' not in entry]
                 val_loss = [entry['eval_loss'] for entry in full_training_history if 'eval_loss' in entry]
                 
                 # Add training histories to dict
-                trial_history = {
+                training_history_trial = {
                     'model_name': model_name,
                     'sample_size': sample_size,
                     'train_loss': train_loss,
                     'val_loss': val_loss
                 }
-                training_histories.append(trial_history)
+                training_histories.append(training_history_trial)
                 
                 # Save fine-tuned model to disk
                 if save_trials:
                     trial_label = f"{model_name}/{sample_size}-shot/{model_name}_{sample_size}-shot_{trial_num}"
                     save_model(model, trial_label)
                 
-                progress_bar.set_postfix(metrics)   # Update progress bar postfix
+                progress_bar.set_postfix(metrics_trial)   # Update progress bar postfix
         
-    # Write results to csv
-    metrics_to_csv(metrics=results, finetuning_method='fewshot')
+    # Write to csv
+    metrics_to_csv(metrics=metrics, finetuning_method='fewshot')
     training_histories_to_csv(training_histories=training_histories, finetuning_method='fewshot')
 
-    return results, training_histories
+    return metrics, training_histories
