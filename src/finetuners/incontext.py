@@ -83,32 +83,35 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, context, batch
     
     return combined_metrics
 
-def batch_evaluate(model_name, train_datasets, eval_dataset_in, eval_dataset_out):
+def batch_evaluate(model_names, train_datasets, eval_dataset_in, eval_dataset_out):
     """Function to perform ICL evaluation and log results."""
 
-    results = {size: [] for size in train_datasets.keys()}
+    metrics = []
 
-    # Load the model and tokenizer
-    model, tokenizer = get_model(model_name, 'CausalLM', pretrained=True)
-    # Evaluate the model
+    for model_name in model_names:
+        for sample_size, trials in train_datasets.items():
+            progress_bar = tqdm(trials, desc=f"{sample_size}-shot")
 
-    for sample_size, trials in train_datasets.items():
-        progress_bar = tqdm(trials, desc=f"{sample_size}-shot")
+            for trial_num, dataset in enumerate(progress_bar):
+                # Load the model and tokenizer
+                model, tokenizer = get_model(model_name, 'CausalLM', pretrained=True)
 
-        for trial_num, dataset in enumerate(progress_bar):
+                # Create in-context learning prompt from training data
+                context = create_few_shot_context(dataset)
+                metrics_trial = evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, context, verbose=False)
 
-            # Create in-context learning prompt from training data
-            context = create_few_shot_context(dataset)
-            eval_metrics = evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, context, verbose=False)
-            results[sample_size].append(eval_metrics)
-            
-            progress_bar.set_postfix(results[sample_size][trial_num])
+                metrics_trial = {'model_name': model_name,
+                                 'sample_size': sample_size,
+                                 **metrics_trial}
+                metrics.append(metrics_trial)
+                
+                progress_bar.set_postfix(metrics_trial)
 
     
     # Write results to csv
-    metrics_to_csv(metrics_dict=results, model_name=model_name, finetuning_method='icl')
+    metrics_to_csv(metrics=metrics, finetuning_method='icl')
 
-    return eval_metrics
+    return metrics
 
 def create_few_shot_context(demos, description=None, seperator=","):
     """Create context for dataset."""
