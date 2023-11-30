@@ -80,21 +80,26 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
     
     return combined_metrics
     
-def batch_evaluate(model_name, eval_dataset_in, eval_dataset_out):
+def batch_evaluate(model_names, eval_dataset_in, eval_dataset_out):
     """Function to perform zero-shot evaluation and log results."""
-    # Load the model and tokenizer
-    model, tokenizer = get_model(model_name, 'CausalLM', pretrained=True)
+    metrics = []
+    
+    # Iterate over models
+    for model_name in model_names:
+        # Load the model and tokenizer
+        model, tokenizer = get_model(model_name, 'CausalLM', pretrained=True)
 
-    # Evaluate the model
-    eval_metrics = evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, verbose=False)
+        # Evaluate the model
+        eval_metrics = evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, verbose=False)
 
-    # Create results dict
-    sample_size = str(len(eval_dataset_in))
-    metrics_dict = {
-        sample_size: [eval_metrics]
-    }
+        # Create results dict
+        sample_size = str(len(eval_dataset_in))
+        eval_metrics = {'model_name': model_name,
+                        'sample_size': sample_size,
+                        **eval_metrics}
+        metrics.append(eval_metrics)
     
     # Write results to csv
-    metrics_to_csv(metrics_dict=metrics_dict, model_name=model_name, finetuning_method='zeroshot')
+    metrics_to_csv(metrics=metrics, finetuning_method='zeroshot')
 
     return eval_metrics
