@@ -188,7 +188,7 @@ def metrics_to_csv(metrics, finetuning_method):
 
 def training_histories_to_csv(training_histories, model_name, finetuning_method):
     """Write training histories to a csv."""
-    filepath = os.path.join(get_project_root(), 'logs', f"{model_name}_{finetuning_method}_training_history.csv")
+    filepath = os.path.join(get_project_root(), 'logs', f"{finetuning_method}_training_history.csv")
     with open(filepath, mode='w', newline='') as file:
         writer = csv.writer(file)
         
@@ -197,14 +197,12 @@ def training_histories_to_csv(training_histories, model_name, finetuning_method)
         writer.writerow(headers)
 
         # Rows
-        for sample_size, trials in training_histories.items():
-            for trial in trials:
-                for epoch in range(len(trial['train_loss'])):
-                    row = [model_name, sample_size]
-                    row.extend([epoch + 1,
-                                trial['train_loss'][epoch],
-                                trial['val_loss'][epoch]])
-                    writer.writerow(row)
+        for trial in training_histories:
+            model_name = trial['model_name']
+            sample_size = trial['sample_size']
+            for epoch, (train_loss, val_loss) in enumerate(zip(trial['train_loss'], trial['val_loss']), start=1):
+                row = [model_name, sample_size, epoch, train_loss, val_loss]
+                writer.writerow(row)
                 
 def get_yes_no_constraint(tokenizer):
     """Return a DisjunctiveConstraint constraining text generation to 'Yes' or 'No'."""
