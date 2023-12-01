@@ -13,8 +13,8 @@ from transformers import Seq2SeqTrainingArguments, TrainingArguments, Seq2SeqTra
 from tqdm.autonotebook import tqdm
 
 # Import Modules
-from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics_causal, metrics_to_csv, training_histories_to_csv, get_yes_no_constraint, interpret_generated_texts, MemoryUsageCallback, ReformatEvalMetricsCallback
-from src.model.model import save_model, get_model
+from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics_causal, metrics_to_csv, get_yes_no_constraint, interpret_generated_texts, reset_memory_stats, get_peak_memory, MemoryUsageCallback, ReformatEvalMetricsCallback
+from src.model.model import get_model
 from src.utils import get_project_root
 
 
@@ -24,6 +24,7 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
         start_time = time.time()
         predicted_labels = []
         yes_no_constraint = get_yes_no_constraint(tokenizer)
+        reset_memory_stats()    # Reset GPU memory stats before eval
         
         progress_bar = tqdm(range(0, len(dataset), batch_size), disable=disable_tqdm)
 
@@ -57,13 +58,15 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
         end_time = time.time()
         runtime = end_time - start_time
         samples_per_second = len(dataset) / runtime
+        peak_memory_gb = get_peak_memory()  # Get peak GPU memory
         
         # Log metrics
         metrics = {
             "loss": avg_loss, 
             "accuracy": accuracy, 
             "runtime": runtime, 
-            "samples_per_second": samples_per_second
+            "samples_per_second": samples_per_second,
+            "peak_memory_gb": peak_memory_gb
         }
         return metrics
     

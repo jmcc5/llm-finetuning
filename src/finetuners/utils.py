@@ -250,3 +250,17 @@ def select_random_subset(dataset, num_shots, seed=123):
 def select_subset_by_idx(dataset, indices):
     subset = dataset.select(indices)
     return subset
+
+def reset_memory_stats():
+    """Reset cuda GPU memory stats"""
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
+        
+def get_peak_memory():
+    """Return peak GPU memory usage"""
+    if torch.cuda.is_available():
+        peak_memory = torch.cuda.max_memory_allocated() / (1024**3)  # Bytes to GB
+    else:
+        peak_memory = 0
+
+    return peak_memory
