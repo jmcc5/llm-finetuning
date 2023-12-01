@@ -23,7 +23,7 @@ def print_gpu_memory_usage():
     
 def cuda_check():
     """Check local environment for cuda availability and print results."""
-    cuda_available = False#torch.cuda.is_available()
+    cuda_available = torch.cuda.is_available()
     print(f"Cuda available: {cuda_available}")
     if not cuda_available:
         warnings.warn("Cuda not available in this environment. Experiments will run slowly on CPU. Update your pytorch+cuda installation by following the steps at https://pytorch.org/get-started/locally/.")
