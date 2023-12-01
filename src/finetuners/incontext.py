@@ -21,7 +21,7 @@ from tqdm.autonotebook import tqdm
 from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics_causal, metrics_to_csv, select_random_subset, select_subset_by_idx, get_yes_no_constraint, interpret_generated_texts, MemoryUsageCallback, ReformatEvalMetricsCallback
 from src.model.model import get_model
 
-def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, context, batch_size=8, verbose=True, disable_tqdm=None):
+def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, context, batch_size=8, verbose=True, disable_tqdm=False):
     """In-context learning base method."""
     def evaluate_dataset(model, tokenizer, dataset, batch_size):
         start_time = time.time()
@@ -83,7 +83,7 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, context, batch
     
     return combined_metrics
 
-def batch_evaluate(model_names, train_datasets, eval_dataset_in, eval_dataset_out):
+def batch_evaluate(model_names, train_datasets, eval_dataset_in, eval_dataset_out, verbose=False, disable_tqdm=False):
     """Function to perform ICL evaluation and log results."""
 
     metrics = []
@@ -98,7 +98,7 @@ def batch_evaluate(model_names, train_datasets, eval_dataset_in, eval_dataset_ou
 
                 # Create in-context learning prompt from training data
                 context = create_few_shot_context(dataset)
-                metrics_trial = evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, context, verbose=False)
+                metrics_trial = evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, context, verbose=verbose, disable_tqdm=disable_tqdm)
 
                 metrics_trial = {'model_name': model_name,
                                  'sample_size': sample_size,
