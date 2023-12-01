@@ -18,7 +18,7 @@ from src.model.model import get_model
 from src.utils import get_project_root
 
 
-def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=True, disable_tqdm=None):
+def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=True, disable_tqdm=False):
     """Zero shot inference."""
     def evaluate_dataset(model, tokenizer, dataset, batch_size):
         start_time = time.time()
@@ -83,7 +83,7 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
     
     return combined_metrics
     
-def batch_evaluate(model_names, eval_dataset_in, eval_dataset_out):
+def batch_evaluate(model_names, eval_dataset_in, eval_dataset_out, verbose=False, disable_tqdm=False):
     """Function to perform zero-shot evaluation and log results."""
     metrics = []
     
@@ -93,7 +93,7 @@ def batch_evaluate(model_names, eval_dataset_in, eval_dataset_out):
         model, tokenizer = get_model(model_name, 'CausalLM', pretrained=True)
 
         # Evaluate the model
-        eval_metrics = evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, verbose=False)
+        eval_metrics = evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, verbose=verbose, disable_tqdm=disable_tqdm)
 
         # Create results dict
         sample_size = str(len(eval_dataset_in))
