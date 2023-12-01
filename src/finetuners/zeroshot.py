@@ -5,17 +5,13 @@ Zero-shot model inference as a baseline for comparison with fine-tuned models.
 """
 
 # Import Libraries
-import os
 import time
 import torch
-import numpy as np
-from transformers import Seq2SeqTrainingArguments, TrainingArguments, Seq2SeqTrainer, Trainer, PrinterCallback, DisjunctiveConstraint
 from tqdm.autonotebook import tqdm
 
 # Import Modules
-from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics_causal, metrics_to_csv, get_yes_no_constraint, interpret_generated_texts, reset_memory_stats, get_peak_memory, MemoryUsageCallback, ReformatEvalMetricsCallback
+from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics_causal, metrics_to_csv, get_yes_no_constraint, interpret_generated_texts, reset_memory_stats, get_peak_memory
 from src.model.model import get_model
-from src.utils import get_project_root
 
 
 def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=True, disable_tqdm=False):

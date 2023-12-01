@@ -7,8 +7,6 @@ In Domain: MNLI and RTE
 Out of Domain: HANS lexical overlap
 """
 
-#TODO: remove neutral labels from MNLI (1)
-
 # Import libraries
 import os
 import numpy as np

@@ -12,7 +12,6 @@ Few-Shot Fine-tuning (FT):
 
 # Import Libraries
 import os
-import numpy as np
 from transformers import TrainingArguments, Trainer, PrinterCallback
 from tqdm.autonotebook import tqdm
 

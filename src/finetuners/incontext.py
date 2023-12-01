@@ -10,16 +10,14 @@ In-Context Learning (ICL):
 """
 
 # Import Libraries
-import os
 import time
 import torch
-import numpy as np
-from transformers import Seq2SeqTrainingArguments, TrainingArguments, Seq2SeqTrainer, Trainer, PrinterCallback, DisjunctiveConstraint
 from tqdm.autonotebook import tqdm
 
 # Import Modules
-from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics_causal, metrics_to_csv, select_random_subset, select_subset_by_idx, get_yes_no_constraint, interpret_generated_texts, MemoryUsageCallback, ReformatEvalMetricsCallback
+from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics_causal, metrics_to_csv, get_yes_no_constraint, interpret_generated_texts
 from src.model.model import get_model
+
 
 def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, context, batch_size=8, verbose=True, disable_tqdm=False):
     """In-context learning base method."""
