@@ -3,6 +3,7 @@ Utility functions
 """
 
 import torch
+import warnings
 from pathlib import Path
 
 
@@ -19,3 +20,10 @@ def print_gpu_memory_usage():
     print(f"Device: {device}")
     print(f"Memory Allocated: {allocated:.2f} GB")
     print(f"Memory Reserved: {reserved:.2f} GB")
+    
+def cuda_check():
+    """Check local environment for cuda availability and print results."""
+    cuda_available = False#torch.cuda.is_available()
+    print(f"Cuda available: {cuda_available}")
+    if not cuda_available:
+        warnings.warn("Cuda not available in this environment. Experiments will run slowly on CPU. Update your pytorch+cuda installation by following the steps at https://pytorch.org/get-started/locally/.")
