@@ -15,7 +15,7 @@ import torch
 from tqdm.autonotebook import tqdm
 
 # Import Modules
-from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics_causal, metrics_to_csv, get_yes_no_constraint, interpret_generated_texts
+from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics_causal, metrics_to_csv, get_yes_no_constraint, interpret_generated_texts, reset_memory_stats, get_peak_memory
 from src.model.model import get_model
 
 
@@ -25,6 +25,7 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, context, batch
         start_time = time.time()
         predicted_labels = []
         yes_no_constraint = get_yes_no_constraint(tokenizer)
+        reset_memory_stats()    # Reset GPU memory stats before eval
         
         progress_bar = tqdm(range(0, len(dataset), batch_size), disable=disable_tqdm)
 
@@ -58,13 +59,15 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, context, batch
         end_time = time.time()
         runtime = end_time - start_time
         samples_per_second = len(dataset) / runtime
+        peak_memory_gb = get_peak_memory()  # Get peak GPU memory
         
         # Log metrics
         metrics = {
             "loss": avg_loss, 
             "accuracy": accuracy, 
             "runtime": runtime, 
-            "samples_per_second": samples_per_second
+            "samples_per_second": samples_per_second,
+            "peak_memory_gb": peak_memory_gb
         }
         return metrics
 
@@ -81,22 +84,22 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, context, batch
     
     return combined_metrics
 
-def batch_evaluate(model_names, train_datasets, eval_dataset_in, eval_dataset_out, verbose=False, disable_tqdm=False):
+def batch_evaluate(model_names, train_datasets, eval_dataset_in, eval_dataset_out):
     """Function to perform ICL evaluation and log results."""
 
     metrics = []
 
     for model_name in model_names:
         for sample_size, trials in train_datasets.items():
-            progress_bar = tqdm(trials, desc=f"{sample_size}-shot")
+            progress_bar = tqdm(trials, desc=f"{model_name} {sample_size}-shot")
 
-            for trial_num, dataset in enumerate(progress_bar):
+            for dataset in progress_bar:
                 # Load the model and tokenizer
                 model, tokenizer = get_model(model_name, 'CausalLM', pretrained=True)
 
                 # Create in-context learning prompt from training data
                 context = create_few_shot_context(dataset)
-                metrics_trial = evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, context, verbose=verbose, disable_tqdm=disable_tqdm)
+                metrics_trial = evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, context, verbose=False, disable_tqdm=True)
 
                 metrics_trial = {'model_name': model_name,
                                  'sample_size': sample_size,

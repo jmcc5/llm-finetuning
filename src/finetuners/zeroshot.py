@@ -79,8 +79,9 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
     
     return combined_metrics
     
-def batch_evaluate(model_names, eval_dataset_in, eval_dataset_out, verbose=False, disable_tqdm=False):
+def batch_evaluate(model_names, eval_dataset_in, eval_dataset_out):
     """Function to perform zero-shot evaluation and log results."""
+    
     metrics = []
     
     # Iterate over models
@@ -89,7 +90,7 @@ def batch_evaluate(model_names, eval_dataset_in, eval_dataset_out, verbose=False
         model, tokenizer = get_model(model_name, 'CausalLM', pretrained=True)
 
         # Evaluate the model
-        eval_metrics = evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, verbose=verbose, disable_tqdm=disable_tqdm)
+        eval_metrics = evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, verbose=False, disable_tqdm=False)
 
         # Create results dict
         sample_size = str(len(eval_dataset_in))
