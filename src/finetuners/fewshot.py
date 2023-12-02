@@ -56,8 +56,7 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
         per_device_train_batch_size=8,
         per_device_eval_batch_size=8,
         evaluation_strategy='epoch' if val_in_training else 'no',
-        logging_steps=1 if val_in_training else 500,
-        seed=42,
+        logging_steps=1 if val_in_training else 500
     )
     
     trainer = Trainer(

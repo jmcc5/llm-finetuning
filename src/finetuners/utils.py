@@ -244,6 +244,7 @@ def reformat_eval_metrics(logs, infix):
         logs[new_key] = logs.pop(key)
 
 def select_random_subset(dataset, num_shots, seed=123):
+    """Not in use"""
     np.random.seed(seed)
 
     if num_shots < 1:
@@ -254,6 +255,7 @@ def select_random_subset(dataset, num_shots, seed=123):
     return select_subset_by_idx(dataset, indices), indices
 
 def select_subset_by_idx(dataset, indices):
+    """Not in use"""
     subset = dataset.select(indices)
     return subset
 
