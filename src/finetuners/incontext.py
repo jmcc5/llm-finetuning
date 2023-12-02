@@ -84,7 +84,7 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, context, batch
     
     return combined_metrics
 
-def batch_evaluate(model_names, train_datasets, eval_dataset_in, eval_dataset_out):
+def batch_evaluate(model_names, train_datasets, eval_dataset_in, eval_dataset_out, exp_label=None):
     """Function to perform ICL evaluation and log results."""
 
     metrics = []
@@ -110,7 +110,7 @@ def batch_evaluate(model_names, train_datasets, eval_dataset_in, eval_dataset_ou
 
     
     # Write results to csv
-    metrics_to_csv(metrics=metrics, finetuning_method='icl')
+    metrics_to_csv(metrics=metrics, finetuning_method='icl', exp_label=exp_label)
 
     return metrics
 

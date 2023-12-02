@@ -172,9 +172,13 @@ def compute_metrics_causal(predicted_labels, actual_labels):
 
     return avg_loss, accuracy
 
-def metrics_to_csv(metrics, finetuning_method):
+def metrics_to_csv(metrics, finetuning_method, exp_label=None):
     """Write a list of metrics dictionaries to a csv."""
-    filepath = os.path.join(get_project_root(), 'logs', f"{finetuning_method}_metrics.csv")
+    if exp_label is not None:
+        exp_label = '_' + exp_label
+    else:
+        exp_label = ''
+    filepath = os.path.join(get_project_root(), 'logs', f"{finetuning_method}_metrics{exp_label}.csv")
     with open(filepath, mode='w', newline='') as file:
         writer = csv.writer(file)
 
@@ -186,9 +190,13 @@ def metrics_to_csv(metrics, finetuning_method):
         for metrics in metrics:
             writer.writerow(metrics.values())
 
-def training_histories_to_csv(training_histories, model_name, finetuning_method):
+def training_histories_to_csv(training_histories, finetuning_method, exp_label=None):
     """Write training histories to a csv."""
-    filepath = os.path.join(get_project_root(), 'logs', f"{finetuning_method}_training_history.csv")
+    if exp_label is not None:
+        exp_label = '_' + exp_label
+    else:
+        exp_label = ''
+    filepath = os.path.join(get_project_root(), 'logs', f"{finetuning_method}_training_history{exp_label}.csv")
     with open(filepath, mode='w', newline='') as file:
         writer = csv.writer(file)
         

@@ -79,7 +79,7 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
     
     return combined_metrics
     
-def batch_evaluate(model_names, eval_dataset_in, eval_dataset_out):
+def batch_evaluate(model_names, eval_dataset_in, eval_dataset_out, exp_label=None):
     """Function to perform zero-shot evaluation and log results."""
     
     metrics = []
@@ -100,6 +100,6 @@ def batch_evaluate(model_names, eval_dataset_in, eval_dataset_out):
         metrics.append(eval_metrics)
     
     # Write results to csv
-    metrics_to_csv(metrics=metrics, finetuning_method='zeroshot')
+    metrics_to_csv(metrics=metrics, finetuning_method='zeroshot', exp_label=exp_label)
 
     return eval_metrics

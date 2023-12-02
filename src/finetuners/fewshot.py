@@ -87,7 +87,7 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
     
     return combined_metrics, training_history
     
-def batch_fine_tune(model_names, train_datasets, eval_dataset_in, eval_dataset_out, save_trials=False):
+def batch_fine_tune(model_names, train_datasets, eval_dataset_in, eval_dataset_out, exp_label=None, save_trials=False):
     """Function to perform few-shot fine-tuning with certain sized samples of a certain number of trials"""
     
     metrics = []
@@ -135,7 +135,7 @@ def batch_fine_tune(model_names, train_datasets, eval_dataset_in, eval_dataset_o
                 progress_bar.set_postfix(metrics_trial)   # Update progress bar postfix
         
     # Write to csv
-    metrics_to_csv(metrics=metrics, finetuning_method='fewshot')
-    training_histories_to_csv(training_histories=training_histories, finetuning_method='fewshot')
+    metrics_to_csv(metrics=metrics, finetuning_method='fewshot', exp_label=exp_label)
+    training_histories_to_csv(training_histories=training_histories, finetuning_method='fewshot', exp_label=exp_label)
 
     return metrics, training_histories
