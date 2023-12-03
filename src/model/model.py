@@ -8,7 +8,7 @@ https://huggingface.co/facebook/opt-350m
 import os
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModelForCausalLM
-from peft import LoRAConfig, get_peft_model
+from peft import LoraConfig, get_peft_model
 
 # Import modules
 from src.utils import get_project_root
@@ -81,7 +81,7 @@ def get_model(model_name, model_type, pretrained=True):
 def get_lora_model(model_name):
     """Load a model with LoRA layers for PEFT."""
     model, tokenizer = get_model(model_name, model_type='SequenceClassification', pretrained=True)
-    config = LoRAConfig(
+    config = LoraConfig(
         r=4, 
         lora_alpha=16, 
         lora_dropout=0.1, 
