@@ -212,6 +212,7 @@ dependencies:
       - jupyterlab-widgets==3.0.9
       - multidict==6.0.4
       - multiprocess==0.70.15
+      - peft==0.6.2
       - pyarrow==13.0.0
       - regex==2023.10.3
       - responses==0.18.0
