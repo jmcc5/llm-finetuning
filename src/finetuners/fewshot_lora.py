@@ -1,13 +1,5 @@
 """
-Few-shot fine-tuning method from “Few-shot Fine-tuning vs. In-context Learning: A Fair Comparison and Evaluation”, Mosbach et al.
-https://aclanthology.org/2023.findings-acl.779.pdf
-https://huggingface.co/docs/transformers/training
-
-Few-Shot Fine-tuning (FT):
-- Few-shot: randomly sampled n in {2, 16, 32, 64, 128} examples.
-- Minimal pattern: append question mark to each example.
-- Verbalizer: "Yes" and "No" labels for NLI and QQP tasks.
-- Fine-tuning: 40 epochs, learning rate of 1e-5, linear increase for initial 10% of steps, then constant.
+Few-shot fine-tuning with LoRA for PEFT.
 """
 
 # Import Libraries
@@ -17,7 +9,7 @@ from tqdm.autonotebook import tqdm
 
 # Import Modules
 from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, training_histories_to_csv, MemoryUsageCallback
-from src.model.model import save_model, get_model
+from src.model.model import save_model, get_model, get_lora_model
 from src.utils import get_project_root
 
 
@@ -98,14 +90,11 @@ def batch_fine_tune(model_names, train_datasets, eval_dataset_in, eval_dataset_o
         for sample_size, trials in train_datasets.items():
             progress_bar = tqdm(trials, desc=f"{model_name} {sample_size}-shot")
             
-            # Set batch size
-            if model_name == 'opt-350m' and sample_size >= 8:
-                batch_size = 32/sample_size
-            else:
-                batch_size = 8
+            batch_size = 64 # Set batch size
             
             for trial_num, dataset in enumerate(progress_bar):
-                model, tokenizer = get_model(model_name, 'SequenceClassification')  # Load original model from disk
+                # model, tokenizer = get_model(model_name, 'SequenceClassification')  # Load original model from disk
+                model, tokenizer = get_lora_model(model_name)
                 metrics_trial, full_training_history = fine_tune(model=model, 
                                                                  tokenizer=tokenizer, 
                                                                  train_dataset=dataset, 
@@ -141,7 +130,7 @@ def batch_fine_tune(model_names, train_datasets, eval_dataset_in, eval_dataset_o
                 progress_bar.set_postfix(metrics_trial)   # Update progress bar postfix
         
     # Write to csv
-    metrics_to_csv(metrics=metrics, finetuning_method='fewshot', exp_label=exp_label)
-    training_histories_to_csv(training_histories=training_histories, finetuning_method='fewshot', exp_label=exp_label)
+    metrics_to_csv(metrics=metrics, finetuning_method='fewshot_lora', exp_label=exp_label)
+    training_histories_to_csv(training_histories=training_histories, finetuning_method='fewshot_lora', exp_label=exp_label)
 
     return metrics, training_histories
