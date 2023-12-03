@@ -1,0 +1,2 @@
+model_name,sample_size,eval_in_loss,eval_in_accuracy,eval_in_runtime,eval_in_samples_per_second,eval_in_peak_memory_gb,eval_out_loss,eval_out_accuracy,eval_out_runtime,eval_out_samples_per_second,eval_out_peak_memory_gb
+bert-base-uncased,10,0.8132616430521011,0.5,10.637824058532715,0.9400418680527896,3.6042890548706055,0.7132616460323333,0.6,10.476474285125732,0.9545195957954844,3.6042890548706055

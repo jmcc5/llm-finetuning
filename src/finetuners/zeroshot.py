@@ -29,7 +29,7 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
             batch_indices = range(i, min(i + batch_size, len(dataset)))
             batch = dataset.select(batch_indices)
             batch = apply_minimal_pattern(batch)
-            tokenized_batch = tokenize_dataset(batch, tokenizer, max_length=512, padding_side='left')   # Use left padding for text generation (OPT is decoder only)
+            tokenized_batch = tokenize_dataset(batch, tokenizer, max_length=256, padding_side='left')   # Use left padding for text generation (OPT is decoder only)
             
             # Convert to tensors
             input_ids = torch.tensor(tokenized_batch['input_ids'], device=model.device)
