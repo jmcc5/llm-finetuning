@@ -8,6 +8,7 @@ https://huggingface.co/facebook/opt-350m
 import os
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModelForCausalLM
+from peft import LoRAConfig, get_peft_model
 
 # Import modules
 from src.utils import get_project_root
@@ -77,8 +78,34 @@ def get_model(model_name, model_type, pretrained=True):
     
     return model, tokenizer
 
+def get_lora_model(model_name):
+    """Load a model with LoRA layers for PEFT."""
+    model, tokenizer = get_model(model_name, model_type='SequenceClassification', pretrained=True)
+    config = LoRAConfig(
+        r=4, 
+        lora_alpha=16, 
+        lora_dropout=0.1, 
+        bias="lora_only", 
+        task_type="SEQ_CLS"
+    )
+    lora_model = get_peft_model(model, config)
+    
+    return lora_model, tokenizer
+    
 def save_model(model, model_name):
     """Saves model to /models/finetuned. model_name should be descriptive of the fine-tuned model ('opt-125m_2')"""
     filepath = os.path.join(get_project_root(), 'models', 'finetuned', model_name)
     model.save_pretrained(filepath)
     # tokenizer.save_pretrained(filepath)
+    
+def print_trainable_parameters(model):
+    """Debug function from https://huggingface.co/docs/peft/task_guides/image_classification_lora#load-and-prepare-a-model"""
+    trainable_params = 0
+    all_param = 0
+    for _, param in model.named_parameters():
+        all_param += param.numel()
+        if param.requires_grad:
+            trainable_params += param.numel()
+    print(
+        f"trainable params: {trainable_params} || all params: {all_param} || trainable%: {100 * trainable_params / all_param:.2f}"
+    )
