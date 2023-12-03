@@ -21,7 +21,7 @@ from src.model.model import save_model, get_model
 from src.utils import get_project_root
 
 
-def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out, val_in_training=True, verbose=True, disable_tqdm=None):
+def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out, batch_size=8, val_in_training=True, verbose=True, disable_tqdm=None):
     """Few shot finetuning base method. Modifies model passed in."""
     # Verbalize and tokenize    
     train_dataset = apply_minimal_pattern(train_dataset)  # Apply minimal pattern
@@ -53,8 +53,8 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
         learning_rate=1e-5,
         lr_scheduler_type='linear',
         warmup_ratio = 0.1,
-        per_device_train_batch_size=8,
-        per_device_eval_batch_size=8,
+        per_device_train_batch_size=batch_size,
+        per_device_eval_batch_size=batch_size,
         evaluation_strategy='epoch' if val_in_training else 'no',
         logging_steps=1 if val_in_training else 500
     )
@@ -98,6 +98,12 @@ def batch_fine_tune(model_names, train_datasets, eval_dataset_in, eval_dataset_o
         for sample_size, trials in train_datasets.items():
             progress_bar = tqdm(trials, desc=f"{model_name} {sample_size}-shot")
             
+            # Set batch size
+            if model_name == 'opt-350m' and sample_size >= 8:
+                batch_size = 32/sample_size
+            else:
+                batch_size = 8
+            
             for trial_num, dataset in enumerate(progress_bar):
                 model, tokenizer = get_model(model_name, 'SequenceClassification')  # Load original model from disk
                 metrics_trial, full_training_history = fine_tune(model=model, 
@@ -105,6 +111,7 @@ def batch_fine_tune(model_names, train_datasets, eval_dataset_in, eval_dataset_o
                                                                  train_dataset=dataset, 
                                                                  eval_dataset_in=eval_dataset_in, 
                                                                  eval_dataset_out=eval_dataset_out, 
+                                                                 batch_size=batch_size,
                                                                  val_in_training=True, 
                                                                  verbose=False) # Fine-tune
                 
