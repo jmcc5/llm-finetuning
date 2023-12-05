@@ -2,8 +2,8 @@
 
 ## Outline
 
-- `data`: datasets from huggingface
-- [`experiments`](https://github.com/jmcc5/llm-finetuning/tree/main/experiments): notebooks for running experiments
+- `data`: saved datasets from huggingface
+- [`experiments`](https://github.com/jmcc5/llm-finetuning/tree/main/experiments): experiment notebooks
 - `logs`: csv output from fine-tuning
 - `models`: saved pre-trained and fine-tuned models
 - [`src/`](https://github.com/jmcc5/llm-finetuning/tree/main/src): main project directory
