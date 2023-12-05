@@ -31,7 +31,7 @@ def distillation_loss(teacher_logits, student_logits, temp = 1):
 
 def context_distillation(student_model, teacher_model, tokenizer, dataset,num_epochs,eval_dataset_in, eval_dataset_out, batch_size=8):
     #datasets should come in pre tokenized with context in teacher datatset?
-
+    device = student_model.device
     # may need to use collate_fn = data_collator with data_collator = transformers.DataCollatorWithPadding(tokenizer)
     teacher_data_loader = DataLoader(dataset, shuffle=False, batch_size=batch_size)
     student_data_loader = DataLoader(dataset, shuffle=False, batch_size=batch_size)
@@ -60,13 +60,14 @@ def context_distillation(student_model, teacher_model, tokenizer, dataset,num_ep
             teacher_dataset = tokenize_dataset(teacher_dataset, tokenizer)
             teacher_input_ids = torch.tensor(teacher_dataset['input_ids'])
             teacher_mask = torch.tensor(teacher_dataset['attention_mask'])
-            teacher_logits = teacher_model(teacher_input_ids, teacher_mask).logits
+            teacher_logits = teacher_model(teacher_input_ids.to(device), teacher_mask.to(device)).logits
             #get student logits
             student_batch = Dataset.from_dict(student_batch)
+            student_batch = apply_minimal_pattern(student_batch, "")
             student_dataset = tokenize_dataset(student_batch, tokenizer)
             student_input_ids = torch.tensor(student_dataset['input_ids'])
             student_mask = torch.tensor(student_dataset['attention_mask'])
-            student_logits = student_model(student_input_ids, student_mask).logits
+            student_logits = student_model(student_input_ids.to(device), student_mask.to(device)).logits
             
             loss = distillation_loss(teacher_logits, student_logits)
             loss.backward()
@@ -77,7 +78,7 @@ def context_distillation(student_model, teacher_model, tokenizer, dataset,num_ep
             progress_bar.update(1)
 
         #todo eval on student model
-    evaluate(student_model, tokenizer, eval_dataset_in, eval_dataset_out)
+    return evaluate(student_model, tokenizer, eval_dataset_in, eval_dataset_out)
 # Evalute post training
 
 def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=True, disable_tqdm=None): # no context needed for eval
