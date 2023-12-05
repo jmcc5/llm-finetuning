@@ -13,7 +13,7 @@
   - [`visualization`](https://github.com/jmcc5/llm-finetuning/tree/main/src/visualization): functions for graphing fine-tuning output
 
 ## Summary
-This Python project aims to explore LLM fine-tuning and context-based methods in an accessible format. We build on work in [uds-lsv/llmft](https://github.com/uds-lsv/llmft) to implement few-shot fine-tuning and in-context learning (ICL) and create our own novel version of context distillation fine-tuning, originally proposed by [Anthropic](https://arxiv.org/pdf/2112.00861.pdf) in 2021.
+This Python project aims to explore LLM fine-tuning and context-based methods in an accessible format. We build on work in [uds-lsv/llmft](https://github.com/uds-lsv/llmft) to implement few-shot fine-tuning and in-context learning (ICL) and create our own novel version of context distillation fine-tuning, originally proposed by [Anthropic](https://arxiv.org/abs/2112.00861) in 2021.
 
 We rely heavily on huggingface's [transformers](https://github.com/huggingface/transformers). For ease of compute and iteration, we experiment with smaller models: [OPT-125m](https://huggingface.co/facebook/opt-125m) and [OPT-350m](https://huggingface.co/facebook/opt-350m). We use the MNLI dataset from [GLUE](https://huggingface.co/datasets/glue) as in-domain and [HANS](https://huggingface.co/datasets/hans) as out-of-domain.
 
