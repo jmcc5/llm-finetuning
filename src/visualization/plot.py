@@ -133,6 +133,10 @@ def plot_learning_curves(logfile, subplot=True):
     # Read log file
     logfilepath = os.path.join(get_project_root(), 'logs', logfile)
     log_df = pd.read_csv(logfilepath)
+    if 'fewshot_lora' in logfile:
+        finetuning_method = 'fewshot_lora'
+    else:
+        finetuning_method = 'fewshot'
 
     sample_sizes = log_df['sample_size'].unique()
     model_names = log_df['model_name'].unique()
@@ -167,6 +171,6 @@ def plot_learning_curves(logfile, subplot=True):
         fig.legend(handles, labels, bbox_to_anchor=(0.5, -0.05), loc='lower center', ncol=4)
 
         plt.tight_layout()
-        filepath = os.path.join(get_project_root(), 'experiments/figures', f"training_histories.png")
+        filepath = os.path.join(get_project_root(), 'experiments/figures', f"learning_curves_{finetuning_method}.png")
         fig.savefig(filepath, bbox_inches='tight')
         plt.show()
