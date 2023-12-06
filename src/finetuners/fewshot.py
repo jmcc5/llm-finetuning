@@ -34,11 +34,11 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
     eval_dataset_out = tokenize_dataset(eval_dataset_out, tokenizer, max_length=512)
     
     # Validation
-    if len(eval_dataset_out) >= 50:
+    if len(eval_dataset_in) >= 50:
         val_samples_size = 10
     else:
-        val_samples_size = len(eval_dataset_out)
-    validation_dataset = eval_dataset_out.shuffle().select(range(val_samples_size))
+        val_samples_size = len(eval_dataset_in)
+    validation_dataset = eval_dataset_in.shuffle().select(range(val_samples_size))
 
     # Fine tuning arguments (Mosbach et al.)
     output_dir = os.path.join(get_project_root(), 'logs')
