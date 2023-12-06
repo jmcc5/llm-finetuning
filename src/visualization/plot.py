@@ -57,13 +57,11 @@ def plot_in_out_domain(logfile, metric):
 def plot_in_out_domain_subplots(logfiles, metrics=['accuracy', 'runtime', 'peak_memory_gb', 'loss'], group_by=None):
     """Plot in vs. out-of-domain data in separate subplots for a desired grouping"""
     
-    #TODO: draw line for zeroshot baseline
-    
     # Combine logfiles into single dataframe
     combined_df = pd.DataFrame()
     for logfile in logfiles:
         logfilepath = os.path.join(get_project_root(), 'logs', logfile)
-        finetuning_method = logfile.split('_')[0]
+        finetuning_method = logfile.split('_')[0] if not 'fewshot_lora' in logfile else 'fewshot_lora'  #TODO: make sure context distillation is handled
         temp_df = pd.read_csv(logfilepath)
         temp_df['finetuning_method'] = finetuning_method
         combined_df = pd.concat([combined_df, temp_df])
@@ -94,8 +92,13 @@ def plot_in_out_domain_subplots(logfiles, metrics=['accuracy', 'runtime', 'peak_
 
                 label = f"{finetuning_method} ({sample_size})"
                 ax.scatter(avg_in_metric, avg_out_metric, label=label, marker='+', s=200)
-
-            ax.set_title(f'{metric.capitalize()} ({group})')
+            if metric == 'runtime':
+                title = f"Runtime (s)"
+            elif metric == 'peak_memory_gb':
+                title = "Peak Memory Usage (GB)"
+            else:
+                title = f"{metric.capitalize()}"
+            ax.set_title(title)
             ax.set_xlabel('In-domain')
             ax.set_ylabel('Out-of-domain')
             ax.grid(True)
@@ -121,7 +124,7 @@ def plot_in_out_domain_subplots(logfiles, metrics=['accuracy', 'runtime', 'peak_
         handles, labels = ax.get_legend_handles_labels()
         sorted_handles_labels = sorted(zip(handles, labels), key=lambda x: x[1])
         sorted_handles, sorted_labels = zip(*sorted_handles_labels)
-        fig.legend(sorted_handles, sorted_labels, bbox_to_anchor=(0.995, 0.49), loc='lower left', ncol=1)
+        fig.legend(sorted_handles, sorted_labels, bbox_to_anchor=(0.995, 0.49), loc='lower left', ncol=1, title=group)
 
         plt.tight_layout()
         filepath = os.path.join(get_project_root(), 'experiments/figures', f"metrics_{group}.png")
