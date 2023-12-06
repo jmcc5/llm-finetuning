@@ -58,7 +58,6 @@ def plot_in_out_domain_subplots(logfiles, metrics=['accuracy', 'runtime', 'peak_
     """Plot in vs. out-of-domain data in separate subplots for a desired grouping"""
     
     #TODO: draw line for zeroshot baseline
-    #TODO: draw diagonal line and square plots
     
     # Combine logfiles into single dataframe
     combined_df = pd.DataFrame()
@@ -88,83 +87,86 @@ def plot_in_out_domain_subplots(logfiles, metrics=['accuracy', 'runtime', 'peak_
             else:
                 group_df = combined_df
 
-            # Use pandas groupby to handle the complex grouping logic
+            # Plot by group
             for (model_name, sample_size, finetuning_method), subset in group_df.groupby(['model_name', 'sample_size', 'finetuning_method']):
                 avg_in_metric = subset[f'eval_in_{metric}'].mean()
                 avg_out_metric = subset[f'eval_out_{metric}'].mean()
 
-                label = f"{finetuning_method} ({sample_size}, {model_name})"
+                label = f"{finetuning_method} ({sample_size})"
                 ax.scatter(avg_in_metric, avg_out_metric, label=label, marker='+', s=200)
 
-            ax.set_title(f'{metric.capitalize()} - {group}')
-            ax.set_xlabel('In-Domain')
-            ax.set_ylabel('Out-of-Domain')
+            ax.set_title(f'{metric.capitalize()} ({group})')
+            ax.set_xlabel('In-domain')
+            ax.set_ylabel('Out-of-domain')
             ax.grid(True)
+            
+            # Equalize axes and plot diagonal line
+            x_min, x_max = ax.get_xlim()
+            y_min, y_max = ax.get_ylim()
+            axes_range = (min(x_min, y_min), max(x_max, y_max))
+            ax.set_xlim(axes_range)
+            ax.set_ylim(axes_range)
+            
+            ax.plot(axes_range, axes_range, 'k--', alpha=0.2)
+            
+            # Zeroshot baseline for current metric
+            zeroshot_subset = group_df[group_df['finetuning_method'] == 'zeroshot']
+            zeroshot_in_avg = zeroshot_subset[f'eval_in_{metric}'].mean()
+            zeroshot_out_avg = zeroshot_subset[f'eval_out_{metric}'].mean()
 
+            ax.scatter([zeroshot_in_avg], [ax.get_ylim()[0]], color='red', marker='|', s=300, linewidth=2, alpha=0.7, zorder=5)  # Vertical line
+            ax.scatter([ax.get_xlim()[0]], [zeroshot_out_avg], color='red', marker='_', s=300, linewidth=2, alpha=0.7, zorder=5, label='zeroshot baseline')  # Horizontal line
+        
+        # Sort and move legend
         handles, labels = ax.get_legend_handles_labels()
-        if handles and labels:
-            fig.legend(handles, labels, bbox_to_anchor=(1, 0.53), loc='lower left', ncol=1)
+        sorted_handles_labels = sorted(zip(handles, labels), key=lambda x: x[1])
+        sorted_handles, sorted_labels = zip(*sorted_handles_labels)
+        fig.legend(sorted_handles, sorted_labels, bbox_to_anchor=(0.995, 0.49), loc='lower left', ncol=1)
 
         plt.tight_layout()
+        filepath = os.path.join(get_project_root(), 'experiments/figures', f"metrics_{group}.png")
+        fig.savefig(filepath, bbox_inches='tight')
         plt.show()
-
     
-def plot_learning_curves(logfile, subplot_cols=None):
+def plot_learning_curves(logfile, subplot=True):
     """Plot learning curves from a log file"""
     # Read log file
     logfilepath = os.path.join(get_project_root(), 'logs', logfile)
     log_df = pd.read_csv(logfilepath)
-    
-    plt.figure(figsize=(6, 6))
 
     sample_sizes = log_df['sample_size'].unique()
+    model_names = log_df['model_name'].unique()
     color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    markers = ['o', 'x']
     
-    if subplot_cols is not None:
+    if subplot is not None:
         # Calculate the number of rows for subplots
-        num_rows = np.ceil(len(sample_sizes) / subplot_cols).astype(int)
-        fig, axes = plt.subplots(num_rows, subplot_cols, figsize=(15, num_rows * 5))
+        fig, axes = plt.subplots(1, len(sample_sizes), figsize=(5*len(sample_sizes), 5))
         axes = axes.flatten()
 
-        for i, size in enumerate(sample_sizes):
-            ax = axes[i]
-            subset = log_df[log_df['sample_size'] == size]
-            avg_train_loss = subset.groupby('epoch')['train_loss'].mean()
-            avg_val_loss = subset.groupby('epoch')['val_loss'].mean()
+        for i, model_name in enumerate(model_names):
+            # color = color_cycle[i+1]
+            marker = markers[i]
+            for subplot, sample_size in enumerate(sample_sizes):
+                ax = axes[subplot]
+                subset = log_df[(log_df['sample_size'] == sample_size) & (log_df['model_name'] == model_name)]
+                avg_train_loss = subset.groupby('epoch')['train_loss'].mean()
+                avg_val_loss = subset.groupby('epoch')['val_loss'].mean()
+                
+                # color = color_cycle[subplot+1]
+                ax.plot(avg_train_loss.index, avg_train_loss, linestyle='-', marker=marker, markersize=4, color='g', label=f'Train Loss ({model_name})')
+                ax.plot(avg_val_loss.index, avg_val_loss, linestyle='--', marker=marker, markersize=4, color='darkorange', label=f'Val Loss ({model_name})')
 
-            color = color_cycle[i % len(color_cycle)]
-            ax.plot(avg_train_loss.index, avg_train_loss, linestyle='-', marker='o', markersize=4, label='Train Loss')
-            ax.plot(avg_val_loss.index, avg_val_loss, linestyle='--', marker='x', markersize=4, label='Val Loss')
+                ax.set_title(f'{sample_size}-shot')
+                ax.set_xlabel('Epoch')
+                ax.set_ylabel('Loss')
+                ax.grid(True)
+                
+        # Sort and move legend
+        handles, labels = ax.get_legend_handles_labels()
+        fig.legend(handles, labels, bbox_to_anchor=(0.5, -0.05), loc='lower center', ncol=4)
 
-            ax.set_title(f'{size}-shot Learning Curve')
-            ax.set_xlabel('Epoch')
-            ax.set_ylabel('Loss')
-            ax.legend()
-            ax.grid(True)
-
-        # Adjust layout and hide empty subplots if necessary
         plt.tight_layout()
-        for j in range(i + 1, len(axes)):
-            axes[j].set_visible(False)
-            
-    else:
-        # Plot average training and validation loss for each sample size
-        for i, size in enumerate(sample_sizes):
-            subset = log_df[log_df['sample_size'] == size]
-            avg_train_loss = subset.groupby('epoch')['train_loss'].mean()
-            avg_val_loss = subset.groupby('epoch')['val_loss'].mean()
-
-            color = color_cycle[i % len(color_cycle)]
-            plt.plot(avg_train_loss.index, avg_train_loss, label=f'{size}-shot Train Loss', linestyle='-', marker='o', markersize=4, color=color)
-            plt.plot(avg_val_loss.index, avg_val_loss, label=f'{size}-shot Val Loss', linestyle='--', marker='x', markersize=4, color=color)
-            
-        num_trials = len(subset.groupby('epoch')['train_loss'])
-        model_name = log_df['model_name'][0]
-        
-        plt.title(f'Learning Curves ({num_trials} trials, {model_name})')
-        plt.xlabel('Epoch')
-        plt.ylabel('Loss')
-        plt.legend()
-        plt.grid(True)
-        plt.tight_layout()
+        filepath = os.path.join(get_project_root(), 'experiments/figures', f"training_histories.png")
+        fig.savefig(filepath, bbox_inches='tight')
         plt.show()
