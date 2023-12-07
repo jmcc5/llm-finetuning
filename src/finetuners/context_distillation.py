@@ -53,12 +53,12 @@ def batch_context_distillation(model_names, train_datasets, eval_dataset_in, eva
     metrics_to_csv(metrics=metrics, finetuning_method='context_distillation', exp_label=exp_label)
 
 
-def context_distillation(student_model, teacher_model, tokenizer, dataset, num_epochs, eval_dataset_in, eval_dataset_out, batch_size=8, model_name='opt-125m'):
+def context_distillation(student_model, teacher_model, tokenizer, dataset,train_dataset, num_epochs, eval_dataset_in, eval_dataset_out, batch_size=8, model_name='opt-125m'):
     #datasets should come in pre tokenized with context in teacher datatset?
     device = student_model.device
     # may need to use collate_fn = data_collator with data_collator = transformers.DataCollatorWithPadding(tokenizer)
-    teacher_data_loader = DataLoader(dataset, shuffle=False, batch_size=batch_size)
-    student_data_loader = DataLoader(dataset, shuffle=False, batch_size=batch_size)
+    teacher_data_loader = DataLoader(train_dataset, shuffle=False, batch_size=batch_size)
+    student_data_loader = DataLoader(train_dataset, shuffle=False, batch_size=batch_size)
 
     #to do: test dataloader
 
