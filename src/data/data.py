@@ -84,3 +84,18 @@ def get_random_subsets(train_dataset, eval_dataset_in, eval_dataset_out, train_s
     eval_out = eval_dataset_out.select(random_indices)
 
     return train_datasets, eval_in, eval_out
+
+def get_context_distillation_datasets(dataset, train_datasets, fewshot_sample_size=16, large_sample_size=4096):
+    """Return a dictionary containing large and small datasets for context distillation experiments."""
+    
+    fewshot_dataset = train_datasets[fewshot_sample_size][0]
+    
+    random_indices = np.random.choice(range(len(dataset)), large_sample_size, replace=False)
+    large_dataset = dataset.select(random_indices)
+    
+    context_distill_datasets = {
+        fewshot_sample_size: fewshot_dataset,
+        large_sample_size: large_dataset
+    }
+
+    return context_distill_datasets
