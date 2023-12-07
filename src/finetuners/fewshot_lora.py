@@ -1,13 +1,5 @@
 """
-Few-shot fine-tuning method from “Few-shot Fine-tuning vs. In-context Learning: A Fair Comparison and Evaluation”, Mosbach et al.
-https://aclanthology.org/2023.findings-acl.779.pdf
-https://huggingface.co/docs/transformers/training
-
-Few-Shot Fine-tuning (FT):
-- Few-shot: randomly sampled n in {2, 16, 32, 64, 128} examples.
-- Minimal pattern: append question mark to each example.
-- Verbalizer: "Yes" and "No" labels for NLI and QQP tasks.
-- Fine-tuning: 40 epochs, learning rate of 1e-5, linear increase for initial 10% of steps, then constant.
+Few-shot fine-tuning with LoRA for PEFT.
 """
 
 # Import Libraries
@@ -17,7 +9,7 @@ from tqdm.autonotebook import tqdm
 
 # Import Modules
 from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, training_histories_to_csv, MemoryUsageCallback
-from src.model.model import save_model, get_model
+from src.model.model import save_model, get_model, get_lora_model
 from src.utils import get_project_root
 
 
@@ -34,11 +26,11 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
     eval_dataset_out = tokenize_dataset(eval_dataset_out, tokenizer, max_length=512)
     
     # Validation
-    if len(eval_dataset_in) >= 50:
+    if len(eval_dataset_out) >= 50:
         val_samples_size = 10
     else:
-        val_samples_size = len(eval_dataset_in)
-    validation_dataset = eval_dataset_in.shuffle().select(range(val_samples_size))
+        val_samples_size = len(eval_dataset_out)
+    validation_dataset = eval_dataset_out.shuffle().select(range(val_samples_size))
 
     # Fine tuning arguments (Mosbach et al.)
     output_dir = os.path.join(get_project_root(), 'logs')
@@ -105,7 +97,8 @@ def batch_fine_tune(model_names, train_datasets, eval_dataset_in, eval_dataset_o
                 batch_size = 8
             
             for trial_num, dataset in enumerate(progress_bar):
-                model, tokenizer = get_model(model_name, 'SequenceClassification')  # Load original model from disk
+                # model, tokenizer = get_model(model_name, 'SequenceClassification')  # Load original model from disk
+                model, tokenizer = get_lora_model(model_name)
                 metrics_trial, full_training_history = fine_tune(model=model, 
                                                                  tokenizer=tokenizer, 
                                                                  train_dataset=dataset, 
@@ -141,7 +134,7 @@ def batch_fine_tune(model_names, train_datasets, eval_dataset_in, eval_dataset_o
                 progress_bar.set_postfix(metrics_trial)   # Update progress bar postfix
         
     # Write to csv
-    metrics_to_csv(metrics=metrics, finetuning_method='fewshot', exp_label=exp_label)
-    training_histories_to_csv(training_histories=training_histories, finetuning_method='fewshot', exp_label=exp_label)
+    metrics_to_csv(metrics=metrics, finetuning_method='fewshot_lora', exp_label=exp_label)
+    training_histories_to_csv(training_histories=training_histories, finetuning_method='fewshot_lora', exp_label=exp_label)
 
     return metrics, training_histories

@@ -172,9 +172,13 @@ def compute_metrics_causal(predicted_labels, actual_labels):
 
     return avg_loss, accuracy
 
-def metrics_to_csv(metrics, finetuning_method):
+def metrics_to_csv(metrics, finetuning_method, exp_label=None):
     """Write a list of metrics dictionaries to a csv."""
-    filepath = os.path.join(get_project_root(), 'logs', f"{finetuning_method}_metrics.csv")
+    if exp_label is not None:
+        exp_label = '_' + exp_label
+    else:
+        exp_label = ''
+    filepath = os.path.join(get_project_root(), 'logs', f"{finetuning_method}_metrics{exp_label}.csv")
     with open(filepath, mode='w', newline='') as file:
         writer = csv.writer(file)
 
@@ -186,9 +190,13 @@ def metrics_to_csv(metrics, finetuning_method):
         for metrics in metrics:
             writer.writerow(metrics.values())
 
-def training_histories_to_csv(training_histories, model_name, finetuning_method):
+def training_histories_to_csv(training_histories, finetuning_method, exp_label=None):
     """Write training histories to a csv."""
-    filepath = os.path.join(get_project_root(), 'logs', f"{model_name}_{finetuning_method}_training_history.csv")
+    if exp_label is not None:
+        exp_label = '_' + exp_label
+    else:
+        exp_label = ''
+    filepath = os.path.join(get_project_root(), 'logs', f"{finetuning_method}_training_history{exp_label}.csv")
     with open(filepath, mode='w', newline='') as file:
         writer = csv.writer(file)
         
@@ -197,14 +205,12 @@ def training_histories_to_csv(training_histories, model_name, finetuning_method)
         writer.writerow(headers)
 
         # Rows
-        for sample_size, trials in training_histories.items():
-            for trial in trials:
-                for epoch in range(len(trial['train_loss'])):
-                    row = [model_name, sample_size]
-                    row.extend([epoch + 1,
-                                trial['train_loss'][epoch],
-                                trial['val_loss'][epoch]])
-                    writer.writerow(row)
+        for trial in training_histories:
+            model_name = trial['model_name']
+            sample_size = trial['sample_size']
+            for epoch, (train_loss, val_loss) in enumerate(zip(trial['train_loss'], trial['val_loss']), start=1):
+                row = [model_name, sample_size, epoch, train_loss, val_loss]
+                writer.writerow(row)
                 
 def get_yes_no_constraint(tokenizer):
     """Return a DisjunctiveConstraint constraining text generation to 'Yes' or 'No'."""
@@ -238,6 +244,7 @@ def reformat_eval_metrics(logs, infix):
         logs[new_key] = logs.pop(key)
 
 def select_random_subset(dataset, num_shots, seed=123):
+    """Not in use"""
     np.random.seed(seed)
 
     if num_shots < 1:
@@ -248,8 +255,23 @@ def select_random_subset(dataset, num_shots, seed=123):
     return select_subset_by_idx(dataset, indices), indices
 
 def select_subset_by_idx(dataset, indices):
+    """Not in use"""
     subset = dataset.select(indices)
     return subset
+
+def reset_memory_stats():
+    """Reset cuda GPU memory stats"""
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
+        
+def get_peak_memory():
+    """Return peak GPU memory usage"""
+    if torch.cuda.is_available():
+        peak_memory = torch.cuda.max_memory_allocated() / (1024**3)  # Bytes to GB
+    else:
+        peak_memory = 0
+
+    return peak_memory
 
 def get_teacher_context(dataset):
     question_prompt = """The question you are trying to solve is whether the premise and hypothesis are a contradiction or an entailment. 

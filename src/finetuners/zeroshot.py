@@ -5,25 +5,22 @@ Zero-shot model inference as a baseline for comparison with fine-tuned models.
 """
 
 # Import Libraries
-import os
 import time
 import torch
-import numpy as np
-from transformers import Seq2SeqTrainingArguments, TrainingArguments, Seq2SeqTrainer, Trainer, PrinterCallback, DisjunctiveConstraint
 from tqdm.autonotebook import tqdm
 
 # Import Modules
-from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics_causal, metrics_to_csv, training_histories_to_csv, get_yes_no_constraint, interpret_generated_texts, MemoryUsageCallback, ReformatEvalMetricsCallback
-from src.model.model import save_model, get_model
-from src.utils import get_project_root
+from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics_causal, metrics_to_csv, get_yes_no_constraint, interpret_generated_texts, reset_memory_stats, get_peak_memory
+from src.model.model import get_model
 
 
-def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=True, disable_tqdm=None):
+def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=True, disable_tqdm=False):
     """Zero shot inference."""
     def evaluate_dataset(model, tokenizer, dataset, batch_size):
         start_time = time.time()
         predicted_labels = []
         yes_no_constraint = get_yes_no_constraint(tokenizer)
+        reset_memory_stats()    # Reset GPU memory stats before eval
         
         progress_bar = tqdm(range(0, len(dataset), batch_size), disable=disable_tqdm)
 
@@ -57,13 +54,15 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
         end_time = time.time()
         runtime = end_time - start_time
         samples_per_second = len(dataset) / runtime
+        peak_memory_gb = get_peak_memory()  # Get peak GPU memory
         
         # Log metrics
         metrics = {
             "loss": avg_loss, 
             "accuracy": accuracy, 
             "runtime": runtime, 
-            "samples_per_second": samples_per_second
+            "samples_per_second": samples_per_second,
+            "peak_memory_gb": peak_memory_gb
         }
         return metrics
     
@@ -80,21 +79,27 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
     
     return combined_metrics
     
-def batch_evaluate(model_name, eval_dataset_in, eval_dataset_out):
+def batch_evaluate(model_names, eval_dataset_in, eval_dataset_out, exp_label=None):
     """Function to perform zero-shot evaluation and log results."""
-    # Load the model and tokenizer
-    model, tokenizer = get_model(model_name, 'CausalLM', pretrained=True)
+    
+    metrics = []
+    
+    # Iterate over models
+    for model_name in model_names:
+        # Load the model and tokenizer
+        model, tokenizer = get_model(model_name, 'CausalLM', pretrained=True)
 
-    # Evaluate the model
-    eval_metrics = evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, verbose=False)
+        # Evaluate the model
+        eval_metrics = evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, verbose=False, disable_tqdm=False)
 
-    # Create results dict
-    sample_size = str(len(eval_dataset_in))
-    metrics_dict = {
-        sample_size: [eval_metrics]
-    }
+        # Create results dict
+        sample_size = str(len(eval_dataset_in))
+        eval_metrics = {'model_name': model_name,
+                        'sample_size': sample_size,
+                        **eval_metrics}
+        metrics.append(eval_metrics)
     
     # Write results to csv
-    metrics_to_csv(metrics_dict=metrics_dict, model_name=model_name, finetuning_method='zeroshot')
+    metrics_to_csv(metrics=metrics, finetuning_method='zeroshot', exp_label=exp_label)
 
     return eval_metrics
