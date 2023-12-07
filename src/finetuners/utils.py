@@ -250,3 +250,42 @@ def select_random_subset(dataset, num_shots, seed=123):
 def select_subset_by_idx(dataset, indices):
     subset = dataset.select(indices)
     return subset
+
+def get_teacher_context(dataset):
+    question_prompt = """The question you are trying to solve is whether the premise and hypothesis are a contradiction or an entailment. 
+The answer is No when the premise and hypothesis are a contradiction and the answer is Yes when the hypothesis and 
+premise are an entailment \n """
+    contradictory_explanation_prompt = """Explanation: The answer is No because the premise and hypothesis are a contradiction. \n """
+    entailment_explanation_prompt = """Explanation: The answer is Yes because the premise and hypothesis are an entailment. \n """
+
+    # labels 0, 1
+    contradictory_example = select_random_example(dataset, 1, 1) # should be a dict?
+    #print(contradictory_example)
+    contradictory_input = "Example input: " + contradictory_example['premise'][0] + " " + contradictory_example['hypothesis'][0] + "?\n"
+    contradictory_output = "Example output: No \n "
+    entailment_example = select_random_example(dataset, 1, 0)
+    entailment_input = "Example input: " + entailment_example['premise'][0] + " " + entailment_example['hypothesis'][0] + "?\n"
+    entailment_output = "Example output: Yes \n " 
+    end = "Now determine whether the following is a contradiction or an entailment.\n"
+
+    context = question_prompt + contradictory_input + contradictory_output + contradictory_explanation_prompt + \
+                                entailment_input + entailment_output + entailment_explanation_prompt + end
+
+    return context
+
+def select_random_example(dataset, quantity, label, seed = 123):
+    np.random.seed(seed)
+
+    if quantity < 1:
+        return [], []
+
+    indices = np.random.choice(range(len(dataset)), size = quantity, replace = False)
+    #print(indices)
+    return select_subset_by_idx_label(dataset, indices, label)
+
+
+def select_subset_by_idx_label(dataset, indices, label):
+    filter = dataset.filter(lambda x: x["label"] == label)
+    #print(len(filter))
+    subset = filter.select(indices)
+    return subset         
