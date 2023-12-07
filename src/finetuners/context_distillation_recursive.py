@@ -85,6 +85,7 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
 
     """Context Distillation student model learning base method."""
     def evaluate_dataset(model, tokenizer, dataset, batch_size):
+        torch.cuda.reset_peak_memory_stats(device=model.device)
         start_time = time.time()
         predicted_labels = []
         yes_no_constraint = get_yes_no_constraint(tokenizer)
@@ -127,7 +128,8 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
             "loss": avg_loss, 
             "accuracy": accuracy, 
             "runtime": runtime, 
-            "samples_per_second": samples_per_second
+            "samples_per_second": samples_per_second,
+            "peak memory": torch.cuda.max_memory_allocated(device=None)
         }
         return metrics
 
