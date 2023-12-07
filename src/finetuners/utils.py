@@ -306,3 +306,10 @@ def select_random_example_by_label(dataset, quantity, label):
     #print(indices)
     return random_example
     
+def distillation_loss(teacher_logits, student_logits, temp=1):
+    kldivloss_func = torch.nn.KLDivLoss(reduction='batchmean')
+    loss = temp ** 2 * kldivloss_func(
+                F.log_softmax(student_logits / temp, dim=-1),
+                F.softmax(teacher_logits / temp, dim=-1))
+    
+    return loss

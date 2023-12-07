@@ -16,7 +16,7 @@ from datasets import Dataset
 
 
 # Import Modules
-from src.finetuners.utils import get_yes_no_constraint, get_teacher_context, apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, interpret_generated_texts, MemoryUsageCallback, ReformatEvalMetricsCallback, compute_metrics_causal 
+from src.finetuners.utils import get_yes_no_constraint, get_teacher_context, apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, interpret_generated_texts, distillation_loss, compute_metrics_causal 
 from src.model.model import save_model, get_model
 from src.utils import get_project_root
 
@@ -41,6 +41,7 @@ def batch_context_distillation(model_names, in_domain_dataset, train_datasets, e
                                                  eval_dataset_in=eval_dataset_in,
                                                  eval_dataset_out=eval_dataset_out,
                                                  num_epochs=1,
+                                                 model_name=model_name,
                                                  batch_size=batch_size)
             
             metrics_trial = {'model_name': model_name,
@@ -51,7 +52,7 @@ def batch_context_distillation(model_names, in_domain_dataset, train_datasets, e
     metrics_to_csv(metrics=metrics, finetuning_method='context_distillation', exp_label=exp_label)
 
 
-def context_distillation(student_model, teacher_model, tokenizer, dataset, train_dataset, num_epochs, eval_dataset_in, eval_dataset_out, batch_size=8, model_name='opt-125m'):
+def context_distillation(student_model, teacher_model, tokenizer, dataset, train_dataset, num_epochs, eval_dataset_in, eval_dataset_out, model_name, batch_size=8):
     #datasets should come in pre tokenized with context in teacher datatset?
     device = student_model.device
     # may need to use collate_fn = data_collator with data_collator = transformers.DataCollatorWithPadding(tokenizer)
@@ -71,7 +72,8 @@ def context_distillation(student_model, teacher_model, tokenizer, dataset, train
         num_training_steps=num_training_steps
     )
 
-    progress_bar = tqdm(range(num_training_steps))
+    sample_size = len(train_dataset)
+    progress_bar = tqdm(range(num_training_steps+1), desc=f"{model_name} {sample_size}-shot")
 
     for epoch in range(num_epochs):
         for (teacher_batch, student_batch) in zip(teacher_data_loader, student_data_loader):
@@ -99,11 +101,14 @@ def context_distillation(student_model, teacher_model, tokenizer, dataset, train
             optimizer.zero_grad()
             progress_bar.update(1)
 
-        #todo eval on student model
-    return evaluate(student_model, tokenizer, eval_dataset_in, eval_dataset_out, model_name=model_name)
+    metrics = evaluate(student_model, tokenizer, eval_dataset_in, eval_dataset_out, verbose=False, disable_tqdm=True)
+    progress_bar.update(1)
+    progress_bar.set_postfix(metrics)   # Update progress bar postfix
+    
+    return metrics
 # Evalute post training
 
-def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=True, disable_tqdm=None, model_name='opt-125m'): # no context needed for eval
+def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=False, disable_tqdm=False): # no context needed for eval
     """Context Distillation student model learning base method."""
     def evaluate_dataset(model, tokenizer, dataset, batch_size):
         torch.cuda.reset_peak_memory_stats(device=None)
@@ -155,7 +160,7 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
         return metrics
 
     # Evaluate - batch size = 8 due to GPU memory constraints
-    combined_metrics = {"model_name": model_name}
+    combined_metrics = {}
     eval_metrics_in = evaluate_dataset(model, tokenizer, eval_dataset_in, batch_size=batch_size)    # In domain
     if verbose:
         print(f"In domain eval metrics:\n{eval_metrics_in}")
@@ -167,11 +172,3 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
     combined_metrics.update({f'eval_out_{k}': v for k, v in eval_metrics_out.items()})
     
     return combined_metrics
-
-def distillation_loss(teacher_logits, student_logits, temp = 1):
-    kldivloss_func = torch.nn.KLDivLoss(reduction='batchmean')
-    loss = temp ** 2 * kldivloss_func(
-                F.log_softmax(student_logits / temp, dim=-1),
-                F.softmax(teacher_logits / temp, dim=-1))
-    
-    return loss
