@@ -1,11 +1,10 @@
 """
-Functions for plotting fine-tuning results
+Functions for plotting fine-tuning results.
 """
 
 # Import libraries
 import os
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 
 # Import Modules
@@ -55,7 +54,7 @@ def plot_in_out_domain(logfile, metric):
     plt.show()
     
 def plot_in_out_domain_subplots(logfiles, metrics=['accuracy', 'runtime', 'peak_memory_gb', 'loss'], group_by=None):
-    """Plot in vs. out-of-domain data in separate subplots for a desired grouping"""
+    """Plot in vs. out-of-domain data in separate subplots for a desired grouping."""
     
     # Combine logfiles into single dataframe
     combined_df = pd.DataFrame()

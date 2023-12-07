@@ -1,7 +1,5 @@
 """
 Zero-shot model inference as a baseline for comparison with fine-tuned models.
-
-- Each inference instance should be on a single example
 """
 
 # Import Libraries
@@ -15,7 +13,7 @@ from src.model.model import get_model
 
 
 def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=True, disable_tqdm=False):
-    """Zero shot inference."""
+    """Zero shot inference base method."""
     def evaluate_dataset(model, tokenizer, dataset, batch_size):
         start_time = time.time()
         predicted_labels = []

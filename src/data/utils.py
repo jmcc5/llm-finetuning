@@ -2,8 +2,6 @@
 Utility functions for data loading and processing
 """
 
-# Import Libraries
-
 
 def remove_neutral_labels(dataset):
     """Remove all rows from the MNLI dataset where the label is 1."""

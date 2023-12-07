@@ -9,12 +9,12 @@ from tqdm.autonotebook import tqdm
 
 # Import Modules
 from src.finetuners.utils import apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, training_histories_to_csv, MemoryUsageCallback
-from src.model.model import save_model, get_model, get_lora_model
+from src.model.model import save_model, get_lora_model, print_trainable_parameters
 from src.utils import get_project_root
 
 
 def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out, batch_size=8, val_in_training=True, verbose=True, disable_tqdm=None):
-    """Few shot finetuning base method. Modifies model passed in."""
+    """Few shot finetuning base method with LoRA. Model parameters are updated."""
     # Verbalize and tokenize    
     train_dataset = apply_minimal_pattern(train_dataset)  # Apply minimal pattern
     train_dataset = tokenize_dataset(train_dataset, tokenizer, max_length=512)  # Tokenize
@@ -79,7 +79,7 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
     return combined_metrics, training_history
     
 def batch_fine_tune(model_names, train_datasets, eval_dataset_in, eval_dataset_out, exp_label=None, save_trials=False):
-    """Function to perform few-shot fine-tuning with certain sized samples of a certain number of trials"""
+    """Few-shot fine-tuning with LoRA for multiple models over dictionary of train_datasets with varying sample size."""
     
     metrics = []
     training_histories = []
@@ -99,6 +99,8 @@ def batch_fine_tune(model_names, train_datasets, eval_dataset_in, eval_dataset_o
             for trial_num, dataset in enumerate(progress_bar):
                 # model, tokenizer = get_model(model_name, 'SequenceClassification')  # Load original model from disk
                 model, tokenizer = get_lora_model(model_name)
+                if trial_num == 0 and sample_size == 2: # Print trainable parameters
+                    print_trainable_parameters(model)
                 metrics_trial, full_training_history = fine_tune(model=model, 
                                                                  tokenizer=tokenizer, 
                                                                  train_dataset=dataset, 

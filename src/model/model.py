@@ -99,7 +99,7 @@ def save_model(model, model_name):
     # tokenizer.save_pretrained(filepath)
     
 def print_trainable_parameters(model):
-    """Debug function from https://huggingface.co/docs/peft/task_guides/image_classification_lora#load-and-prepare-a-model"""
+    """Print number of trainable parameters in a model. Function from https://huggingface.co/docs/peft/task_guides/image_classification_lora#load-and-prepare-a-model."""
     trainable_params = 0
     all_param = 0
     for _, param in model.named_parameters():
