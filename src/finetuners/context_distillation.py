@@ -101,6 +101,7 @@ def context_distillation(student_model, teacher_model, tokenizer, dataset, train
             optimizer.zero_grad()
             progress_bar.update(1)
 
+    progress_bar.set_postfix_str("Evaluating...")
     metrics = evaluate(student_model, tokenizer, eval_dataset_in, eval_dataset_out, verbose=False, disable_tqdm=True)
     progress_bar.update(1)
     progress_bar.set_postfix(metrics)   # Update progress bar postfix

@@ -99,8 +99,9 @@ def recursive_context_distillation(student_model, tokenizer, dataset, train_data
             lr_schedulizer.step()
             optimizer.zero_grad()
             progress_bar.update(1)
-
-    metrics = evaluate(student_model, tokenizer, eval_dataset_in, eval_dataset_out)
+            
+    progress_bar.set_postfix_str("Evaluating...")
+    metrics = evaluate(student_model, tokenizer, eval_dataset_in, eval_dataset_out, verbose=False, disable_tqdm=True)
     progress_bar.update(1)
     progress_bar.set_postfix(metrics)
     
