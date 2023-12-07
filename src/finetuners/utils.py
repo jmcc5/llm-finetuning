@@ -295,9 +295,7 @@ premise are an entailment \n """
 
     return context
 
-def select_random_example(dataset, quantity, label, seed = 123):
-    np.random.seed(seed)
-
+def select_random_example(dataset, quantity, label):
     if quantity < 1:
         return [], []
 
