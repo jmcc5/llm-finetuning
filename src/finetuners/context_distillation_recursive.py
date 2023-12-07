@@ -20,14 +20,36 @@ from src.finetuners.utils import get_yes_no_constraint, get_teacher_context, app
 from src.model.model import save_model, get_model
 from src.utils import get_project_root
 
-def distillation_loss(teacher_logits, student_logits, temp = 1):
-    kldivloss_func = torch.nn.KLDivLoss(reduction='batchmean')
-    loss = temp ** 2 * kldivloss_func(
-                F.log_softmax(student_logits / temp, dim=-1),
-                F.softmax(teacher_logits / temp, dim=-1))
+def batch_recursive_context_distillation(model_names, train_dataset, eval_dataset_in, eval_dataset_out, batch_size=2, exp_label=None):
+    """Function to perform context distillation fine-tuning for each model in model_names."""
+    #TODO: @Joel review this method, make sure I didn't miss anything. The goal is for model loading to occur in the scope of this function, not in the notebook.
+    # Metrics for both models should be collected here and written to a single csv.
+    # Question - are we really using 4096 examples for training? Is that required? Would be interesting to try with way less - like 2, 4, 8, and 16.
     
-    return loss
-
+    metrics = []
+    
+    for model_name in model_names:
+        
+        # Load student and teacher models
+        student_model, tokenizer = get_model(model_name, 'SequenceClassification')
+        teacher_model, _ = get_model(model_name, 'SequenceClassification')
+        
+        metrics_trial = recursive_context_distillation(student_model=student_model,
+                                                       teacher_model=teacher_model,
+                                                       tokenizer=tokenizer,
+                                                       dataset=train_dataset,
+                                                       eval_dataset_in=eval_dataset_in,
+                                                       eval_dataset_out=eval_dataset_out,
+                                                       num_epochs=1,
+                                                       batch_size=batch_size)
+        
+        sample_size = len(train_dataset)  #TODO: 4096... is this right? might be why it takes so long to run...
+        metrics_trial = {'model_name': model_name,
+                         'sample_size': sample_size,
+                         **metrics_trial}
+        metrics.append(metrics_trial)
+        
+    metrics_to_csv(metrics=metrics, finetuning_method='recursive_context_distillation', exp_label=exp_label)
 
 def recursive_context_distillation(student_model, tokenizer, dataset,num_epochs,eval_dataset_in, eval_dataset_out, batch_size=8, model_name='opt-125m'):
     #datasets should come in pre tokenized with context in teacher datatset?
@@ -143,7 +165,13 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
     combined_metrics = {"model_name": model_name}
     combined_metrics.update({f'eval_in_{k}': v for k, v in eval_metrics_in.items()})
     combined_metrics.update({f'eval_out_{k}': v for k, v in eval_metrics_out.items()})
-    metrics_to_csv(metrics=[combined_metrics], finetuning_method='recursive_context_distillation')
+
     return combined_metrics
 
-
+def distillation_loss(teacher_logits, student_logits, temp = 1):
+    kldivloss_func = torch.nn.KLDivLoss(reduction='batchmean')
+    loss = temp ** 2 * kldivloss_func(
+                F.log_softmax(student_logits / temp, dim=-1),
+                F.softmax(teacher_logits / temp, dim=-1))
+    
+    return loss
