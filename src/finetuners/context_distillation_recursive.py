@@ -29,7 +29,7 @@ def distillation_loss(teacher_logits, student_logits, temp = 1):
     return loss
 
 
-def recursive_context_distillation(student_model, tokenizer, dataset,num_epochs,eval_dataset_in, eval_dataset_out, batch_size=8):
+def recursive_context_distillation(student_model, tokenizer, dataset,num_epochs,eval_dataset_in, eval_dataset_out, batch_size=8, model_name='opt-125m'):
     #datasets should come in pre tokenized with context in teacher datatset?
     device = student_model.device
     # may need to use collate_fn = data_collator with data_collator = transformers.DataCollatorWithPadding(tokenizer)
@@ -78,10 +78,10 @@ def recursive_context_distillation(student_model, tokenizer, dataset,num_epochs,
             progress_bar.update(1)
 
         #todo eval on student model
-    return evaluate(student_model, tokenizer, eval_dataset_in, eval_dataset_out)
+    return evaluate(student_model, tokenizer, eval_dataset_in, eval_dataset_out, model_name=model_name)
 # Evalute post training
 
-def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=True, disable_tqdm=None): # no context needed for eval
+def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=True, disable_tqdm=None, model_name='opt-125m'): # no context needed for eval
 
     """Context Distillation student model learning base method."""
     def evaluate_dataset(model, tokenizer, dataset, batch_size):
@@ -129,7 +129,7 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
             "accuracy": accuracy, 
             "runtime": runtime, 
             "samples_per_second": samples_per_second,
-            "peak memory": torch.cuda.max_memory_allocated(device=model.device)
+            "peak memory": torch.cuda.max_memory_allocated(device=model.device) / (1024 ** 3)
         }
         return metrics
 
@@ -140,10 +140,10 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
     eval_metrics_out = evaluate_dataset(model, tokenizer, eval_dataset_out, batch_size=batch_size)  # OOD
     if verbose:
         print(f"Out of domain eval metrics:\n{eval_metrics_out}")
-
-    combined_metrics = {f'eval_in_{k}': v for k, v in eval_metrics_in.items()}
+    combined_metrics = {"model_name": model_name}
+    combined_metrics.update({f'eval_in_{k}': v for k, v in eval_metrics_in.items()})
     combined_metrics.update({f'eval_out_{k}': v for k, v in eval_metrics_out.items()})
-    
+    metrics_to_csv(metrics=[combined_metrics], finetuning_method='recursive_context_distillation')
     return combined_metrics
 
 

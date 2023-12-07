@@ -29,7 +29,7 @@ def distillation_loss(teacher_logits, student_logits, temp = 1):
     return loss
 
 
-def context_distillation(student_model, teacher_model, tokenizer, dataset,num_epochs,eval_dataset_in, eval_dataset_out, batch_size=8):
+def context_distillation(student_model, teacher_model, tokenizer, dataset,num_epochs,eval_dataset_in, eval_dataset_out, batch_size=8, model_name='opt-125m'):
     #datasets should come in pre tokenized with context in teacher datatset?
     device = student_model.device
     # may need to use collate_fn = data_collator with data_collator = transformers.DataCollatorWithPadding(tokenizer)
@@ -78,14 +78,14 @@ def context_distillation(student_model, teacher_model, tokenizer, dataset,num_ep
             progress_bar.update(1)
 
         #todo eval on student model
-    return evaluate(student_model, tokenizer, eval_dataset_in, eval_dataset_out)
+    return evaluate(student_model, tokenizer, eval_dataset_in, eval_dataset_out, model_name=model_name)
 # Evalute post training
 
-def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=True, disable_tqdm=None): # no context needed for eval
+def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=True, disable_tqdm=None, model_name='opt-125m'): # no context needed for eval
 
     """Context Distillation student model learning base method."""
     def evaluate_dataset(model, tokenizer, dataset, batch_size):
-        torch.cuda.reset_peak_memory_stats(device=model.device)
+        torch.cuda.reset_peak_memory_stats(device=None)
         start_time = time.time()
         predicted_labels = []
         yes_no_constraint = get_yes_no_constraint(tokenizer)
@@ -129,11 +129,12 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
             "accuracy": accuracy, 
             "runtime": runtime, 
             "samples_per_second": samples_per_second,
-            "peak memory": torch.cuda.max_memory_allocated(device=model.device)
+            "peak_memory_gb": torch.cuda.max_memory_allocated(device=None) / (1024 ** 3)
         }
         return metrics
 
     # Evaluate - batch size = 8 due to GPU memory constraints
+    combined_metrics = {"model_name": model_name}
     eval_metrics_in = evaluate_dataset(model, tokenizer, eval_dataset_in, batch_size=batch_size)    # In domain
     if verbose:
         print(f"In domain eval metrics:\n{eval_metrics_in}")
@@ -141,9 +142,9 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
     if verbose:
         print(f"Out of domain eval metrics:\n{eval_metrics_out}")
 
-    combined_metrics = {f'eval_in_{k}': v for k, v in eval_metrics_in.items()}
+    combined_metrics.update({f'eval_in_{k}': v for k, v in eval_metrics_in.items()})
     combined_metrics.update({f'eval_out_{k}': v for k, v in eval_metrics_out.items()})
-    
+    metrics_to_csv(metrics=[combined_metrics], finetuning_method='context_distillation')
     return combined_metrics
 
 
