@@ -129,7 +129,7 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
             "accuracy": accuracy, 
             "runtime": runtime, 
             "samples_per_second": samples_per_second,
-            "peak memory": torch.cuda.max_memory_allocated(device=None)
+            "peak memory": torch.cuda.max_memory_allocated(device=model.device)
         }
         return metrics
 
