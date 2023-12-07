@@ -20,7 +20,7 @@ from src.finetuners.utils import get_yes_no_constraint, get_teacher_context, app
 from src.model.model import save_model, get_model
 from src.utils import get_project_root
 
-def batch_recursive_context_distillation(model_names, train_dataset, eval_dataset_in, eval_dataset_out, batch_size=2, exp_label=None):
+def batch_recursive_context_distillation(model_names,dataset, train_dataset, eval_dataset_in, eval_dataset_out, batch_size=2, exp_label=None):
     """Function to perform context distillation fine-tuning for each model in model_names."""
     #TODO: @Joel review this method, make sure I didn't miss anything. The goal is for model loading to occur in the scope of this function, not in the notebook.
     # Metrics for both models should be collected here and written to a single csv.
@@ -31,13 +31,12 @@ def batch_recursive_context_distillation(model_names, train_dataset, eval_datase
     for model_name in model_names:
         
         # Load student and teacher models
-        student_model, tokenizer = get_model(model_name, 'SequenceClassification')
-        teacher_model, _ = get_model(model_name, 'SequenceClassification')
+        student_model, tokenizer = get_model(model_name, 'CausalLM')
         
         metrics_trial = recursive_context_distillation(student_model=student_model,
-                                                       teacher_model=teacher_model,
                                                        tokenizer=tokenizer,
-                                                       dataset=train_dataset,
+                                                       dataset=dataset,
+                                                       train_dataset = train_dataset,
                                                        eval_dataset_in=eval_dataset_in,
                                                        eval_dataset_out=eval_dataset_out,
                                                        num_epochs=1,
@@ -51,12 +50,12 @@ def batch_recursive_context_distillation(model_names, train_dataset, eval_datase
         
     metrics_to_csv(metrics=metrics, finetuning_method='recursive_context_distillation', exp_label=exp_label)
 
-def recursive_context_distillation(student_model, tokenizer, dataset,num_epochs,eval_dataset_in, eval_dataset_out, batch_size=8, model_name='opt-125m'):
+def recursive_context_distillation(student_model, tokenizer, dataset,train_dataset,num_epochs,eval_dataset_in, eval_dataset_out, batch_size=8, model_name='opt-125m'):
     #datasets should come in pre tokenized with context in teacher datatset?
     device = student_model.device
     # may need to use collate_fn = data_collator with data_collator = transformers.DataCollatorWithPadding(tokenizer)
 
-    student_data_loader = DataLoader(dataset, shuffle=False, batch_size=batch_size)
+    student_data_loader = DataLoader(train_dataset, shuffle=False, batch_size=batch_size)
 
     #to do: test dataloader
 
