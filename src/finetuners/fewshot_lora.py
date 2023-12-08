@@ -92,9 +92,9 @@ def batch_fine_tune(model_names, train_datasets, eval_dataset_in, eval_dataset_o
             
             # Dynamic batch sizing
             if model_name == 'opt-350m' and sample_size >= 8:
-                batch_size = 32/sample_size
+                batch_size = int(32/sample_size)
             else:
-                batch_size = 8
+                batch_size = int(8)
             
             for trial_num, dataset in enumerate(progress_bar):
                 # model, tokenizer = get_model(model_name, 'SequenceClassification')  # Load original model from disk

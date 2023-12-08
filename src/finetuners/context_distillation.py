@@ -24,9 +24,9 @@ def batch_context_distillation(model_names, in_domain_dataset, train_datasets, e
         for sample_size, train_dataset in train_datasets.items():
             # Dynamic batch sizing
             if model_name == 'opt-350m':
-                batch_size = 2
+                batch_size = int(2)
             else:
-                batch_size = 4
+                batch_size = int(4)
                 
             # Load student and teacher models
             student_model, tokenizer = get_model(model_name, 'CausalLM')
