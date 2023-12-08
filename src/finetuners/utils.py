@@ -281,11 +281,11 @@ premise are an entailment \n """
     entailment_explanation_prompt = """Explanation: The answer is Yes because the premise and hypothesis are an entailment. \n """
 
     # labels 0, 1
-    contradictory_example = select_random_example(dataset, 1, 1) # should be a dict?
+    contradictory_example = select_random_example_by_label(dataset, quantity=1, label=1) # should be a dict?
     #print(contradictory_example)
     contradictory_input = "Example input: " + contradictory_example['premise'][0] + " " + contradictory_example['hypothesis'][0] + "?\n"
     contradictory_output = "Example output: No \n "
-    entailment_example = select_random_example(dataset, 1, 0)
+    entailment_example = select_random_example_by_label(dataset, quantity=1, label=0)
     entailment_input = "Example input: " + entailment_example['premise'][0] + " " + entailment_example['hypothesis'][0] + "?\n"
     entailment_output = "Example output: Yes \n " 
     end = "Now determine whether the following is a contradiction or an entailment.\n"
@@ -295,19 +295,21 @@ premise are an entailment \n """
 
     return context
 
-def select_random_example(dataset, quantity, label, seed = 123):
-    np.random.seed(seed)
-
+def select_random_example_by_label(dataset, quantity, label):
     if quantity < 1:
         return [], []
+    
+    filtered_dataset = dataset.filter(lambda x: x["label"] == label)
 
-    indices = np.random.choice(range(len(dataset)), size = quantity, replace = False)
+    indices = np.random.choice(range(len(filtered_dataset)), size=quantity, replace=False)
+    random_example = filtered_dataset.select(indices)
     #print(indices)
-    return select_subset_by_idx_label(dataset, indices, label)
-
-
-def select_subset_by_idx_label(dataset, indices, label):
-    filter = dataset.filter(lambda x: x["label"] == label)
-    #print(len(filter))
-    subset = filter.select(indices)
-    return subset         
+    return random_example
+    
+def distillation_loss(teacher_logits, student_logits, temp=1):
+    kldivloss_func = torch.nn.KLDivLoss(reduction='batchmean')
+    loss = temp ** 2 * kldivloss_func(
+                F.log_softmax(student_logits / temp, dim=-1),
+                F.softmax(teacher_logits / temp, dim=-1))
+    
+    return loss
