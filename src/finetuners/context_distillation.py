@@ -3,7 +3,6 @@ Context distillation fine-tuning.
 """
 
 # Import Libraries
-import os
 from transformers import get_scheduler
 from tqdm.autonotebook import tqdm
 import torch
@@ -12,7 +11,7 @@ import time
 from datasets import Dataset
 
 # Import Modules
-from src.finetuners.utils import get_yes_no_constraint, get_teacher_context, apply_minimal_pattern, tokenize_dataset, metrics_to_csv, interpret_generated_texts, distillation_loss, compute_metrics_causal 
+from src.finetuners.utils import get_yes_no_constraint, get_teacher_context, apply_minimal_pattern, tokenize_dataset, metrics_to_csv, interpret_generated_texts, distillation_loss, compute_metrics_causal, reset_memory_stats, get_peak_memory
 from src.model.model import get_model
 
 
@@ -111,7 +110,7 @@ def context_distillation(student_model, teacher_model, tokenizer, dataset, train
 def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=False, disable_tqdm=False): # no context needed for eval
     """Context Distillation student model learning base method."""
     def evaluate_dataset(model, tokenizer, dataset, batch_size):
-        torch.cuda.reset_peak_memory_stats(device=None)
+        reset_memory_stats()
         start_time = time.time()
         predicted_labels = []
         yes_no_constraint = get_yes_no_constraint(tokenizer)
@@ -155,7 +154,7 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
             "accuracy": accuracy, 
             "runtime": runtime, 
             "samples_per_second": samples_per_second,
-            "peak_memory_gb": torch.cuda.max_memory_allocated(device=None) / (1024 ** 3)
+            "peak_memory_gb": get_peak_memory()
         }
         return metrics
 

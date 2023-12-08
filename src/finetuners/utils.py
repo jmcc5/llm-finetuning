@@ -17,9 +17,11 @@ from transformers.generation.beam_constraints import DisjunctiveConstraint
 # Import Modules
 from src.utils import get_project_root
 
+
 class MemoryUsageCallback(TrainerCallback):
     """Callback class to add GPU memory usage metrics to metric dicts."""
     #BUG: memory metric is the same for eval in/out domain
+    #SOLVED: memory is highly dependent on batch size, not number of tokens
     
     def __init__(self, val_in_training=False):
         self.using_cuda = torch.cuda.is_available()
@@ -115,23 +117,20 @@ def reformat_eval_metrics(logs, infix):
 
 def apply_minimal_pattern(dataset, context = ''):
     """Apply the minimal pattern '{premise} {hypothesis}?'. Currently supports MNLI and HANS."""
-    if not context == '':
-        context = context + " "
     def format_batch(batch):
-
         batch['text'] = [context + premise + " " + hypothesis + "?" for premise, hypothesis in zip(batch['premise'], batch['hypothesis'])]
         return batch
     
-    disable_progress_bar() 
+    # Add context
+    if not context == '':
+        context = context + " "
+    disable_progress_bar()
     dataset = dataset.map(format_batch, batched=True)
     
     return dataset
 
 def tokenize_dataset(dataset, tokenizer, max_length=512, padding_side=None):
     """Tokenize input dataset. Designed for use after minimal pattern is applied."""
-    original_padding_side = tokenizer.padding_side
-    if padding_side is not None:
-        tokenizer.padding_side = padding_side
     def tokenize_function(examples):
         tokenized_examples = tokenizer(examples['text'], 
                                        truncation=True, 
@@ -139,9 +138,14 @@ def tokenize_dataset(dataset, tokenizer, max_length=512, padding_side=None):
                                        max_length=max_length)
         return tokenized_examples
     
+    # Set padding
+    original_padding_side = tokenizer.padding_side
+    if padding_side is not None:
+        tokenizer.padding_side = padding_side
+    
     disable_progress_bar() 
     dataset = dataset.map(tokenize_function, batched=True)
-    tokenizer.padding_side = original_padding_side  # Restor original padding side
+    tokenizer.padding_side = original_padding_side  # Restore original padding side
     
     return dataset
 
@@ -245,7 +249,6 @@ def reformat_eval_metrics(logs, infix):
 
 def select_random_subset(dataset, num_shots, seed=123):
     """Not in use"""
-    np.random.seed(seed)
 
     if num_shots < 1:
         return [], []
@@ -299,6 +302,7 @@ def select_random_example_by_label(dataset, quantity, label):
     if quantity < 1:
         return [], []
     
+    disable_progress_bar()
     filtered_dataset = dataset.filter(lambda x: x["label"] == label)
 
     indices = np.random.choice(range(len(filtered_dataset)), size=quantity, replace=False)

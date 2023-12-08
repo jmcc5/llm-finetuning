@@ -64,9 +64,9 @@ def plot_in_out_domain_subplots(logfiles, metrics=['accuracy', 'runtime', 'peak_
             finetuning_method = 'fewshot_lora'
         elif 'context_distillation' in logfile:
             if 'recursive' in logfile:
-                finetuning_method = 'recursive_cd'
+                finetuning_method = 'recursive_context_distillation'
             else:
-                finetuning_method = 'cd'
+                finetuning_method = 'context_distillation'
         else:
             finetuning_method = logfile.split('_')[0]
         temp_df = pd.read_csv(logfilepath)
@@ -97,7 +97,13 @@ def plot_in_out_domain_subplots(logfiles, metrics=['accuracy', 'runtime', 'peak_
                 avg_in_metric = subset[f'eval_in_{metric}'].mean()
                 avg_out_metric = subset[f'eval_out_{metric}'].mean()
 
-                label = f"{finetuning_method} ({sample_size})"
+                if finetuning_method == 'context_distillation':
+                    label = f"CD ({sample_size})"
+                elif finetuning_method == 'recursive_context_distillation':
+                    label = f"recursive CD ({sample_size})"
+                else:
+                    label = f"{finetuning_method} ({sample_size})"
+                
                 ax.scatter(avg_in_metric, avg_out_metric, label=label, marker='+', s=200)
             if metric == 'runtime':
                 title = f"Runtime (s)"
