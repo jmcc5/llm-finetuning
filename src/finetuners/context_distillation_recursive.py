@@ -20,7 +20,7 @@ from src.finetuners.utils import get_yes_no_constraint, get_teacher_context, app
 from src.model.model import save_model, get_model
 from src.utils import get_project_root
 
-def batch_recursive_context_distillation(model_names, in_domain_dataset, train_datasets, eval_dataset_in, eval_dataset_out, batch_size=8, exp_label=None):
+def batch_recursive_context_distillation(model_names, in_domain_dataset, train_datasets, eval_dataset_in, eval_dataset_out, batch_size=4, exp_label=None):
     """Function to perform context distillation fine-tuning for each model in model_names."""
     #TODO: @Joel review this method, make sure I didn't miss anything. The goal is for model loading to occur in the scope of this function, not in the notebook.
     # Metrics for both models should be collected here and written to a single csv.
@@ -30,6 +30,12 @@ def batch_recursive_context_distillation(model_names, in_domain_dataset, train_d
     
     for model_name in model_names:
         for sample_size, train_dataset in train_datasets.items():
+            
+            # Dynamic batch sizing
+            if model_name == 'opt-350m':
+                batch_size = 2
+            else:
+                batch_size = 4
         
             # Load student and teacher models
             student_model, tokenizer = get_model(model_name, 'CausalLM')
@@ -58,9 +64,7 @@ def recursive_context_distillation(student_model, tokenizer, dataset, train_data
 
     student_data_loader = DataLoader(train_dataset, shuffle=False, batch_size=batch_size)
 
-    #to do: test dataloader
-
-    optimizer = optimizer = AdamW(student_model.parameters(), lr=5e-5) # lr maybe changed follows paper
+    optimizer = torch.optim.AdamW(student_model.parameters(), lr=5e-5)
 
     num_training_steps = num_epochs * len(student_data_loader)
 
@@ -101,7 +105,7 @@ def recursive_context_distillation(student_model, tokenizer, dataset, train_data
             progress_bar.update(1)
             
     progress_bar.set_postfix_str("Evaluating...")
-    metrics = evaluate(student_model, tokenizer, eval_dataset_in, eval_dataset_out, verbose=False, disable_tqdm=True)
+    metrics = evaluate(student_model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=False, disable_tqdm=True)
     progress_bar.update(1)
     progress_bar.set_postfix(metrics)
     

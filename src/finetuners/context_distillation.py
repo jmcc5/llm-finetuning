@@ -9,9 +9,9 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
+from torch.cuda.amp import GradScaler, autocast
 import time
 from datasets import Dataset
-
 
 
 
@@ -21,17 +21,26 @@ from src.model.model import save_model, get_model
 from src.utils import get_project_root
 
 
-def batch_context_distillation(model_names, in_domain_dataset, train_datasets, eval_dataset_in, eval_dataset_out, batch_size=8, exp_label=None):
+def batch_context_distillation(model_names, in_domain_dataset, train_datasets, eval_dataset_in, eval_dataset_out, batch_size=4, exp_label=None):
     """Function to perform context distillation fine-tuning for each model in model_names."""
     
     metrics = []
     
     for model_name in model_names:
         for sample_size, train_dataset in train_datasets.items():
-        
+            # Dynamic batch sizing
+            if model_name == 'opt-350m':
+                batch_size = 2
+            else:
+                batch_size = 4
+                
             # Load student and teacher models
             student_model, tokenizer = get_model(model_name, 'CausalLM')
             teacher_model, _ = get_model(model_name, 'CausalLM')
+            
+            # Don't track gradients in teacher model
+            for param in teacher_model.parameters():
+                param.requires_grad = False
             
             metrics_trial = context_distillation(student_model=student_model,
                                                  teacher_model=teacher_model,
@@ -51,19 +60,16 @@ def batch_context_distillation(model_names, in_domain_dataset, train_datasets, e
         
     metrics_to_csv(metrics=metrics, finetuning_method='context_distillation', exp_label=exp_label)
 
-
 def context_distillation(student_model, teacher_model, tokenizer, dataset, train_dataset, num_epochs, eval_dataset_in, eval_dataset_out, model_name, batch_size=8):
     #datasets should come in pre tokenized with context in teacher datatset?
     device = student_model.device
     # may need to use collate_fn = data_collator with data_collator = transformers.DataCollatorWithPadding(tokenizer)
-    teacher_data_loader = DataLoader(train_dataset, shuffle=False, batch_size=batch_size)
-    student_data_loader = DataLoader(train_dataset, shuffle=False, batch_size=batch_size)
 
-    #to do: test dataloader
+    dataloader = DataLoader(train_dataset, shuffle=False, batch_size=batch_size)
 
-    optimizer = optimizer = AdamW(student_model.parameters(), lr=5e-5) # lr maybe changed follows paper
+    optimizer = torch.optim.AdamW(student_model.parameters(), lr=5e-5)
 
-    num_training_steps = num_epochs * len(student_data_loader)
+    num_training_steps = num_epochs * len(dataloader)
 
     lr_schedulizer = get_scheduler(
         "linear",
@@ -76,38 +82,39 @@ def context_distillation(student_model, teacher_model, tokenizer, dataset, train
     progress_bar = tqdm(range(num_training_steps+1), desc=f"{model_name} {sample_size}-shot")
 
     for epoch in range(num_epochs):
-        for (teacher_batch, student_batch) in zip(teacher_data_loader, student_data_loader):
+        for batch in dataloader:
             #get teacher logits
             teacher_context = get_teacher_context(dataset)
-            teacher_batch = Dataset.from_dict(teacher_batch)
+            teacher_batch = Dataset.from_dict(batch)
             teacher_dataset = apply_minimal_pattern(teacher_batch, teacher_context)
             teacher_dataset = tokenize_dataset(teacher_dataset, tokenizer)
-            teacher_input_ids = torch.tensor(teacher_dataset['input_ids'])
-            teacher_mask = torch.tensor(teacher_dataset['attention_mask'])
-            teacher_logits = teacher_model(teacher_input_ids.to(device), teacher_mask.to(device)).logits
+            teacher_input_ids = torch.tensor(teacher_dataset['input_ids'], device=device)
+            teacher_mask = torch.tensor(teacher_dataset['attention_mask'], device=device)
+            teacher_logits = teacher_model(teacher_input_ids, teacher_mask).logits
+            
             #get student logits
-            student_batch = Dataset.from_dict(student_batch)
+            student_batch = Dataset.from_dict(batch)
             student_batch = apply_minimal_pattern(student_batch, "")
             student_dataset = tokenize_dataset(student_batch, tokenizer)
-            student_input_ids = torch.tensor(student_dataset['input_ids'])
-            student_mask = torch.tensor(student_dataset['attention_mask'])
-            student_logits = student_model(student_input_ids.to(device), student_mask.to(device)).logits
+            student_input_ids = torch.tensor(student_dataset['input_ids'], device=device)
+            student_mask = torch.tensor(student_dataset['attention_mask'], device=device)
+            student_logits = student_model(student_input_ids, student_mask).logits
             
+            # Backwards pass and optimizer step
             loss = distillation_loss(teacher_logits, student_logits)
             loss.backward()
-
             optimizer.step()
             lr_schedulizer.step()
             optimizer.zero_grad()
             progress_bar.update(1)
 
     progress_bar.set_postfix_str("Evaluating...")
-    metrics = evaluate(student_model, tokenizer, eval_dataset_in, eval_dataset_out, verbose=False, disable_tqdm=True)
+    metrics = evaluate(student_model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=False, disable_tqdm=True)
     progress_bar.update(1)
     progress_bar.set_postfix(metrics)   # Update progress bar postfix
     
     return metrics
-# Evalute post training
+
 
 def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=False, disable_tqdm=False): # no context needed for eval
     """Context Distillation student model learning base method."""
