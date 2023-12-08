@@ -1,13 +1,6 @@
 """
 Few-shot fine-tuning method from “Few-shot Fine-tuning vs. In-context Learning: A Fair Comparison and Evaluation”, Mosbach et al.
 https://aclanthology.org/2023.findings-acl.779.pdf
-https://huggingface.co/docs/transformers/training
-
-Few-Shot Fine-tuning (FT):
-- Few-shot: randomly sampled n in {2, 16, 32, 64, 128} examples.
-- Minimal pattern: append question mark to each example.
-- Verbalizer: "Yes" and "No" labels for NLI and QQP tasks.
-- Fine-tuning: 40 epochs, learning rate of 1e-5, linear increase for initial 10% of steps, then constant.
 """
 
 # Import Libraries
@@ -22,7 +15,7 @@ from src.utils import get_project_root
 
 
 def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out, batch_size=8, val_in_training=True, verbose=True, disable_tqdm=None):
-    """Few shot finetuning base method. Modifies model passed in."""
+    """Few shot finetuning base method. Model parameters are updated."""
     # Verbalize and tokenize    
     train_dataset = apply_minimal_pattern(train_dataset)  # Apply minimal pattern
     train_dataset = tokenize_dataset(train_dataset, tokenizer, max_length=512)  # Tokenize
@@ -87,7 +80,7 @@ def fine_tune(model, tokenizer, train_dataset, eval_dataset_in, eval_dataset_out
     return combined_metrics, training_history
     
 def batch_fine_tune(model_names, train_datasets, eval_dataset_in, eval_dataset_out, exp_label=None, save_trials=False):
-    """Function to perform few-shot fine-tuning with certain sized samples of a certain number of trials"""
+    """Few-shot fine-tuning for multiple models over dictionary of train_datasets with varying sample size."""
     
     metrics = []
     training_histories = []
@@ -100,9 +93,9 @@ def batch_fine_tune(model_names, train_datasets, eval_dataset_in, eval_dataset_o
             
             # Dynamic batch sizing
             if model_name == 'opt-350m' and sample_size >= 8:
-                batch_size = 32/sample_size
+                batch_size = int(32/sample_size)
             else:
-                batch_size = 8
+                batch_size = int(8)
             
             for trial_num, dataset in enumerate(progress_bar):
                 model, tokenizer = get_model(model_name, 'SequenceClassification')  # Load original model from disk

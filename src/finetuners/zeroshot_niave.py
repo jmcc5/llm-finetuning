@@ -1,7 +1,5 @@
 """
-Zero-shot model inference as a baseline for comparison with fine-tuned models.
-
-- Each inference instance should be on a single example
+Zero-shot model inference using a randomly initialized sequence classification head. WIP.
 """
 
 # Import Libraries

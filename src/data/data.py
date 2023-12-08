@@ -61,8 +61,7 @@ def get_out_domain(dataset_name='hans', set_name='validation'):
     return out_domain
 
 def get_random_subsets(train_dataset, eval_dataset_in, eval_dataset_out, train_sample_sizes=[2, 16, 32, 64, 128], num_trials=10, eval_sample_size=50):
-    """Returns a dictionary of a list of randomly sampled datasets, indexed by sample_size"""
-    #TODO: need to seed np.random somewhere
+    """Returns a dictionary of a list of randomly sampled datasets, keyed by sample_size"""
     
     train_datasets = {}
 

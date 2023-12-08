@@ -1,44 +1,33 @@
 """
-Context distillation fine-tuning
+Recursive context distillation fine-tuning.
 """
 
-import os
-from transformers import TrainingArguments, Trainer, PrinterCallback, get_scheduler, AdamW
+# Import Libraries
+from transformers import get_scheduler
 from tqdm.autonotebook import tqdm
-import numpy as np
 import torch
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import time
 from datasets import Dataset
 
-
-
-
 # Import Modules
-from src.finetuners.utils import get_yes_no_constraint, get_teacher_context, apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, interpret_generated_texts, distillation_loss, compute_metrics_causal 
-from src.model.model import save_model, get_model
-from src.utils import get_project_root
+from src.finetuners.utils import get_yes_no_constraint, get_teacher_context, apply_minimal_pattern, tokenize_dataset, metrics_to_csv, interpret_generated_texts, distillation_loss, compute_metrics_causal, reset_memory_stats, get_peak_memory
+from src.model.model import get_model
 
 def batch_recursive_context_distillation(model_names, in_domain_dataset, train_datasets, eval_dataset_in, eval_dataset_out, batch_size=4, exp_label=None):
     """Function to perform context distillation fine-tuning for each model in model_names."""
-    #TODO: @Joel review this method, make sure I didn't miss anything. The goal is for model loading to occur in the scope of this function, not in the notebook.
-    # Metrics for both models should be collected here and written to a single csv.
-    # Question - are we really using 4096 examples for training? Is that required? Would be interesting to try with way less - like 2, 4, 8, and 16.
-    
     metrics = []
     
+    # Loop over models, sample sizes
     for model_name in model_names:
         for sample_size, train_dataset in train_datasets.items():
-            
             # Dynamic batch sizing
             if model_name == 'opt-350m':
-                batch_size = 2
+                batch_size = int(2)
             else:
-                batch_size = 4
+                batch_size = int(4)
         
-            # Load student and teacher models
-            student_model, tokenizer = get_model(model_name, 'CausalLM')
+            student_model, tokenizer = get_model(model_name, 'CausalLM')    # Load student model
             
             metrics_trial = recursive_context_distillation(student_model=student_model,
                                                            tokenizer=tokenizer,
@@ -50,6 +39,7 @@ def batch_recursive_context_distillation(model_names, in_domain_dataset, train_d
                                                            model_name=model_name,
                                                            batch_size=batch_size)
             
+            # Log metrics
             metrics_trial = {'model_name': model_name,
                             'sample_size': sample_size,
                             **metrics_trial}
@@ -58,14 +48,10 @@ def batch_recursive_context_distillation(model_names, in_domain_dataset, train_d
     metrics_to_csv(metrics=metrics, finetuning_method='recursive_context_distillation', exp_label=exp_label)
 
 def recursive_context_distillation(student_model, tokenizer, dataset, train_dataset, num_epochs,eval_dataset_in, eval_dataset_out, model_name, batch_size=8):
-    #datasets should come in pre tokenized with context in teacher datatset?
     device = student_model.device
-    # may need to use collate_fn = data_collator with data_collator = transformers.DataCollatorWithPadding(tokenizer)
 
-    student_data_loader = DataLoader(train_dataset, shuffle=False, batch_size=batch_size)
-
-    optimizer = torch.optim.AdamW(student_model.parameters(), lr=5e-5)
-
+    student_data_loader = DataLoader(train_dataset, shuffle=False, batch_size=batch_size)   # data_collator could solve issues
+    optimizer = torch.optim.AdamW(student_model.parameters(), lr=5e-5)  # Low LR
     num_training_steps = num_epochs * len(student_data_loader)
 
     lr_schedulizer = get_scheduler(
@@ -78,9 +64,10 @@ def recursive_context_distillation(student_model, tokenizer, dataset, train_data
     sample_size = len(train_dataset)
     progress_bar = tqdm(range(num_training_steps+1), desc=f"{model_name} {sample_size}-shot")
 
+    # Training loop
     for epoch in range(num_epochs):
         for student_batch in student_data_loader:
-            #get teacher logits
+            # Get teacher logits
             teacher_context = get_teacher_context(dataset)
             teacher_batch = Dataset.from_dict(student_batch)
             teacher_dataset = apply_minimal_pattern(teacher_batch, teacher_context)
@@ -88,7 +75,8 @@ def recursive_context_distillation(student_model, tokenizer, dataset, train_data
             teacher_input_ids = torch.tensor(teacher_dataset['input_ids'])
             teacher_mask = torch.tensor(teacher_dataset['attention_mask'])
             teacher_logits = student_model(teacher_input_ids.to(device), teacher_mask.to(device)).logits
-            #get student logits
+            
+            # Get student logits
             student_batch = Dataset.from_dict(student_batch)
             student_batch = apply_minimal_pattern(student_batch, "")
             student_dataset = tokenize_dataset(student_batch, tokenizer)
@@ -96,9 +84,9 @@ def recursive_context_distillation(student_model, tokenizer, dataset, train_data
             student_mask = torch.tensor(student_dataset['attention_mask'])
             student_logits = student_model(student_input_ids.to(device), student_mask.to(device)).logits
             
-            loss = distillation_loss(teacher_logits, student_logits)
+            # Backwards pass and optimizer step
+            loss = distillation_loss(teacher_logits, student_logits)    # KL divergence loss
             loss.backward()
-
             optimizer.step()
             lr_schedulizer.step()
             optimizer.zero_grad()
@@ -110,12 +98,11 @@ def recursive_context_distillation(student_model, tokenizer, dataset, train_data
     progress_bar.set_postfix(metrics)
     
     return metrics
-# Evalute post training
 
-def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=False, disable_tqdm=False): # no context needed for eval
+def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, verbose=False, disable_tqdm=False):
     """Context Distillation student model learning base method."""
     def evaluate_dataset(model, tokenizer, dataset, batch_size):
-        torch.cuda.reset_peak_memory_stats(device=model.device)
+        reset_memory_stats()
         start_time = time.time()
         predicted_labels = []
         yes_no_constraint = get_yes_no_constraint(tokenizer)
@@ -159,7 +146,7 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
             "accuracy": accuracy, 
             "runtime": runtime, 
             "samples_per_second": samples_per_second,
-            "peak memory": torch.cuda.max_memory_allocated(device=model.device) / (1024 ** 3)
+            "peak memory": get_peak_memory()
         }
         return metrics
 
