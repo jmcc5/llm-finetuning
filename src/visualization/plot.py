@@ -60,7 +60,15 @@ def plot_in_out_domain_subplots(logfiles, metrics=['accuracy', 'runtime', 'peak_
     combined_df = pd.DataFrame()
     for logfile in logfiles:
         logfilepath = os.path.join(get_project_root(), 'logs', logfile)
-        finetuning_method = logfile.split('_')[0] if not 'fewshot_lora' in logfile else 'fewshot_lora'  #TODO: make sure context distillation is handled
+        if 'fewshot_lora' in logfile:
+            finetuning_method = 'fewshot_lora'
+        elif 'context_distillation' in logfile:
+            if 'recursive' in logfile:
+                finetuning_method = 'recursive_cd'
+            else:
+                finetuning_method = 'cd'
+        else:
+            finetuning_method = logfile.split('_')[0]
         temp_df = pd.read_csv(logfilepath)
         temp_df['finetuning_method'] = finetuning_method
         combined_df = pd.concat([combined_df, temp_df])
