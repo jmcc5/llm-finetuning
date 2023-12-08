@@ -1,31 +1,26 @@
 """
-Context distillation fine-tuning
+Context distillation fine-tuning.
 """
 
+# Import Libraries
 import os
-from transformers import TrainingArguments, Trainer, PrinterCallback, get_scheduler, AdamW
+from transformers import get_scheduler
 from tqdm.autonotebook import tqdm
-import numpy as np
 import torch
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from torch.cuda.amp import GradScaler, autocast
 import time
 from datasets import Dataset
 
-
-
 # Import Modules
-from src.finetuners.utils import get_yes_no_constraint, get_teacher_context, apply_minimal_pattern, tokenize_dataset, compute_metrics, metrics_to_csv, interpret_generated_texts, distillation_loss, compute_metrics_causal 
-from src.model.model import save_model, get_model
-from src.utils import get_project_root
+from src.finetuners.utils import get_yes_no_constraint, get_teacher_context, apply_minimal_pattern, tokenize_dataset, metrics_to_csv, interpret_generated_texts, distillation_loss, compute_metrics_causal 
+from src.model.model import get_model
 
 
 def batch_context_distillation(model_names, in_domain_dataset, train_datasets, eval_dataset_in, eval_dataset_out, batch_size=4, exp_label=None):
     """Function to perform context distillation fine-tuning for each model in model_names."""
-    
     metrics = []
     
+    # Loop over models, sample sizes
     for model_name in model_names:
         for sample_size, train_dataset in train_datasets.items():
             # Dynamic batch sizing
@@ -53,6 +48,7 @@ def batch_context_distillation(model_names, in_domain_dataset, train_datasets, e
                                                  model_name=model_name,
                                                  batch_size=batch_size)
             
+            # Log metrics
             metrics_trial = {'model_name': model_name,
                             'sample_size': sample_size,
                             **metrics_trial}
@@ -61,14 +57,10 @@ def batch_context_distillation(model_names, in_domain_dataset, train_datasets, e
     metrics_to_csv(metrics=metrics, finetuning_method='context_distillation', exp_label=exp_label)
 
 def context_distillation(student_model, teacher_model, tokenizer, dataset, train_dataset, num_epochs, eval_dataset_in, eval_dataset_out, model_name, batch_size=8):
-    #datasets should come in pre tokenized with context in teacher datatset?
     device = student_model.device
-    # may need to use collate_fn = data_collator with data_collator = transformers.DataCollatorWithPadding(tokenizer)
-
-    dataloader = DataLoader(train_dataset, shuffle=False, batch_size=batch_size)
-
+    
+    dataloader = DataLoader(train_dataset, shuffle=False, batch_size=batch_size)    # data_collator could solve issues
     optimizer = torch.optim.AdamW(student_model.parameters(), lr=5e-5)
-
     num_training_steps = num_epochs * len(dataloader)
 
     lr_schedulizer = get_scheduler(
@@ -83,7 +75,7 @@ def context_distillation(student_model, teacher_model, tokenizer, dataset, train
 
     for epoch in range(num_epochs):
         for batch in dataloader:
-            #get teacher logits
+            # Get teacher logits
             teacher_context = get_teacher_context(dataset)
             teacher_batch = Dataset.from_dict(batch)
             teacher_dataset = apply_minimal_pattern(teacher_batch, teacher_context)
@@ -92,7 +84,7 @@ def context_distillation(student_model, teacher_model, tokenizer, dataset, train
             teacher_mask = torch.tensor(teacher_dataset['attention_mask'], device=device)
             teacher_logits = teacher_model(teacher_input_ids, teacher_mask).logits
             
-            #get student logits
+            # Get student logits
             student_batch = Dataset.from_dict(batch)
             student_batch = apply_minimal_pattern(student_batch, "")
             student_dataset = tokenize_dataset(student_batch, tokenizer)
@@ -101,7 +93,7 @@ def context_distillation(student_model, teacher_model, tokenizer, dataset, train
             student_logits = student_model(student_input_ids, student_mask).logits
             
             # Backwards pass and optimizer step
-            loss = distillation_loss(teacher_logits, student_logits)
+            loss = distillation_loss(teacher_logits, student_logits)    # KL divergence loss
             loss.backward()
             optimizer.step()
             lr_schedulizer.step()
