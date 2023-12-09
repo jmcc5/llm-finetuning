@@ -144,49 +144,57 @@ def plot_in_out_domain_subplots(logfiles, metrics=['accuracy', 'runtime', 'peak_
         fig.savefig(filepath, bbox_inches='tight')
         plt.show()
     
-def plot_learning_curves(logfile, subplot=True):
-    """Plot learning curves from a log file"""
-    # Read log file
-    logfilepath = os.path.join(get_project_root(), 'logs', logfile)
-    log_df = pd.read_csv(logfilepath)
-    if 'fewshot_lora' in logfile:
-        finetuning_method = 'fewshot_lora'
-    else:
-        finetuning_method = 'fewshot'
+def plot_learning_curves(logfiles, subplot=True):
+    """Plot learning curves from a log file"""        
+    # Combine logfiles into single dataframe
+    combined_df = pd.DataFrame()
+    for logfile in logfiles:
+        logfilepath = os.path.join(get_project_root(), 'logs', logfile)
+        log_df = pd.read_csv(logfilepath)
+        if 'fewshot_lora' in logfile:
+            finetuning_method = 'fewshot_lora'
+        else:
+            finetuning_method = 'fewshot'
+        temp_df = pd.read_csv(logfilepath)
+        temp_df['finetuning_method'] = finetuning_method
+        combined_df = pd.concat([combined_df, temp_df])
 
-    sample_sizes = log_df['sample_size'].unique()
-    model_names = log_df['model_name'].unique()
+    sample_sizes = combined_df['sample_size'].unique()
+    model_names = combined_df['model_name'].unique()
+    finetuning_methods = combined_df['finetuning_method'].unique()
     color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
     markers = ['o', 'x']
     
     if subplot is not None:
-        # Calculate the number of rows for subplots
-        fig, axes = plt.subplots(1, len(sample_sizes), figsize=(5*len(sample_sizes), 5))
-        axes = axes.flatten()
+        for model_name in model_names:
+            # Calculate the number of rows for subplots
+            fig, axes = plt.subplots(1, len(sample_sizes), figsize=(5*len(sample_sizes), 5))
+            axes = axes.flatten()
 
-        for i, model_name in enumerate(model_names):
-            # color = color_cycle[i+1]
-            marker = markers[i]
-            for subplot, sample_size in enumerate(sample_sizes):
-                ax = axes[subplot]
-                subset = log_df[(log_df['sample_size'] == sample_size) & (log_df['model_name'] == model_name)]
-                avg_train_loss = subset.groupby('epoch')['train_loss'].mean()
-                avg_val_loss = subset.groupby('epoch')['val_loss'].mean()
-                
-                # color = color_cycle[subplot+1]
-                ax.plot(avg_train_loss.index, avg_train_loss, linestyle='-', marker=marker, markersize=4, color='g', label=f'Train Loss ({model_name})')
-                ax.plot(avg_val_loss.index, avg_val_loss, linestyle='--', marker=marker, markersize=4, color='darkorange', label=f'Val Loss ({model_name})')
+            for i, finetuning_method in enumerate(finetuning_methods):
+                # color = color_cycle[i+1]
+                marker = markers[i]
+                for subplot, sample_size in enumerate(sample_sizes):
+                    ax = axes[subplot]
+                    subset = combined_df[(combined_df['sample_size'] == sample_size) & (combined_df['model_name'] == model_name) & (combined_df['finetuning_method'] == finetuning_method)]
+                    avg_train_loss = subset.groupby('epoch')['train_loss'].mean()
+                    avg_val_loss = subset.groupby('epoch')['val_loss'].mean()
+                    
+                    # color = color_cycle[subplot+1]
+                    ax.plot(avg_train_loss.index, avg_train_loss, linestyle='-', marker=marker, markersize=4, color='g', label=f'Train Loss ({finetuning_method})')
+                    ax.plot(avg_val_loss.index, avg_val_loss, linestyle='--', marker=marker, markersize=4, color='darkorange', label=f'Val Loss ({finetuning_method})')
 
-                ax.set_title(f'{sample_size}-shot')
-                ax.set_xlabel('Epoch')
-                ax.set_ylabel('Loss')
-                ax.grid(True)
-                
-        # Sort and move legend
-        handles, labels = ax.get_legend_handles_labels()
-        fig.legend(handles, labels, bbox_to_anchor=(0.5, -0.05), loc='lower center', ncol=4)
+                    ax.set_title(f'{sample_size}-shot')
+                    if subplot in [0, 3]:
+                        ax.set_xlabel('Epoch')
+                    ax.set_ylabel('Loss')
+                    ax.grid(True)
+                    
+            # Sort and move legend
+            handles, labels = ax.get_legend_handles_labels()
+            fig.legend(handles, labels, bbox_to_anchor=(0.5, -0.04), loc='lower center', ncol=4, title=model_name)
 
-        plt.tight_layout()
-        filepath = os.path.join(get_project_root(), 'experiments/figures', f"learning_curves_{finetuning_method}.png")
-        fig.savefig(filepath, bbox_inches='tight')
-        plt.show()
+            plt.tight_layout()
+            filepath = os.path.join(get_project_root(), 'experiments/figures', f"learning_curves_{model_name}.png")
+            fig.savefig(filepath, bbox_inches='tight')
+            plt.show()
