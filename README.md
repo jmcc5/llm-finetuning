@@ -23,11 +23,13 @@ We rely heavily on huggingface's [transformers](https://github.com/huggingface/t
 ## Results
 Our experiment [notebook](https://nbviewer.org/github/jmcc5/llm-finetuning/blob/main/experiments/final_experiments.ipynb) contains results for few-shot fine-tuning (with and without LoRA), ICL, and two implementations of context distillation. Few-shot and ICL experiments are repeated 10 times for each sample size with randomly selected training data. Context distillation experiments are repeated only once due to time constraints.
 
-RESULTS METRICS FIGURES
+![Evaluation metrics, OPT-125m. Zero-shot baseline labeled on axes in red.](experiments/figures/metrics_opt-125m.png)
+![Evaluation metrics, OPT-350m. Zero-shot baseline labeled on axes in red.](experiments/figures/metrics_opt-350m.png)
 
 The two figures above present accuracy, runtime, GPU memory usage, and loss for each fine-tuning method, sample size, and model. CONCLUSIONS.
 
-LEARNING CURVES FIGURE
+![Few-shot fine-tuning learning curves, OPT-125m. Few-shot (round) and few-shot with LoRA (x).](experiments/figures/learning_curves_opt-125m.png)
+![Few-shot fine-tuning learning curves, OPT-125m. Few-shot (round) and few-shot with LoRA (x).](experiments/figures/learning_curves_opt-350m.png)
 
 The figures above present training performance for our few-shot experiments, with and without LoRA, in the form of learning curves (loss over training epochs). CONCLUSIONS.
 
