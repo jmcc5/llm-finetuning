@@ -1,5 +1,8 @@
 # llm-finetuning
 
+## Authors
+[Harrison Floam](https://github.com/harrisonfloam), [Ethan Lumbantobing](https://github.com/eTobing), and [Joel McCarty](https://github.com/jmcc5).
+
 ## Outline
 
 - `data`: saved datasets from huggingface
