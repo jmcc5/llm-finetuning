@@ -72,6 +72,10 @@ def plot_in_out_domain_subplots(logfiles, metrics=['accuracy', 'runtime', 'peak_
         temp_df = pd.read_csv(logfilepath)
         temp_df['finetuning_method'] = finetuning_method
         combined_df = pd.concat([combined_df, temp_df])
+        
+    # Write combined df to csv
+    combined_filepath = os.path.join(get_project_root(), 'logs', 'combined_metrics.csv')
+    combined_df.to_csv(combined_filepath, index=False)
     
     # Get members of grouping
     if group_by:
@@ -229,3 +233,26 @@ def plot_learning_curves(logfiles, subplot=True):
             filepath = os.path.join(get_project_root(), 'experiments/figures', f"learning_curves_{model_name}.png")
             fig.savefig(filepath, bbox_inches='tight')
             plt.show()
+            
+def data_to_latex(combined_logfile):
+    combined_logfilepath = os.path.join(get_project_root(), 'logs', combined_logfile)
+    combined_metrics = pd.read_csv(combined_logfilepath)
+
+    # Pivot table
+    pivot_table = combined_metrics.pivot_table(
+        index=['model_name', 'finetuning_method', 'sample_size'],
+        values=['eval_in_accuracy', 'eval_in_runtime', 'eval_in_peak_memory_gb', 'eval_in_loss', 'eval_out_accuracy', 'eval_out_runtime', 'eval_out_peak_memory_gb', 'eval_out_loss'],
+        aggfunc='mean'
+    ).reset_index()
+
+    latex_table = pivot_table.to_latex(
+        index=False,
+        column_format='|l|c|c|c|c|c|c|c|c|',  # Adjust based on the number of columns
+        float_format="%.2f",
+        caption='My Pivot Table',
+        label='tab:my_pivot_table',
+        longtable=True,
+        escape=True
+    )
+    
+    return latex_table
