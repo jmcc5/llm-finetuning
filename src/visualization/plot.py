@@ -81,6 +81,33 @@ def plot_in_out_domain_subplots(logfiles, metrics=['accuracy', 'runtime', 'peak_
     
     num_cols = len(metrics)
     
+    colors = {
+        'fewshot': 'C0',
+        'fewshot_lora': 'C1',
+        'icl': 'C2',
+        'context_distillation':'C4',
+        'recursive_context_distillation': 'C6',
+        'zeroshot': 'r'
+    }
+    
+    markers = {
+        2: '+',
+        4: '^',
+        8: 'd',
+        16: '*',
+        4096: '+',
+        50: '+'
+    }
+    
+    marker_sizes = {
+        2: 200,
+        4: 100,
+        8: 100,
+        16: 100,
+        4096: 200,
+        50: 200
+    }
+    
     for group in unique_groups:
         fig, axes = plt.subplots(1, num_cols, figsize=(5 * num_cols, 5))
         axes = axes.flatten()
@@ -100,11 +127,15 @@ def plot_in_out_domain_subplots(logfiles, metrics=['accuracy', 'runtime', 'peak_
                 if finetuning_method == 'context_distillation':
                     label = f"CD ({sample_size})"
                 elif finetuning_method == 'recursive_context_distillation':
-                    label = f"recursive CD ({sample_size})"
+                    label = f"CD_recursive ({sample_size})"
+                elif finetuning_method == 'zeroshot':
+                    label = ''
                 else:
                     label = f"{finetuning_method} ({sample_size})"
                 
-                ax.scatter(avg_in_metric, avg_out_metric, label=label, marker='+', s=200)
+                ax.scatter(avg_in_metric, avg_out_metric, label=label, marker=markers[sample_size], color=colors[finetuning_method], s=marker_sizes[sample_size])   #BUG: same colors...
+                # finetuning method same color, shot size different shape
+                
             if metric == 'runtime':
                 title = f"Runtime (s)"
             elif metric == 'peak_memory_gb':
@@ -137,7 +168,7 @@ def plot_in_out_domain_subplots(logfiles, metrics=['accuracy', 'runtime', 'peak_
         handles, labels = ax.get_legend_handles_labels()
         sorted_handles_labels = sorted(zip(handles, labels), key=lambda x: x[1])
         sorted_handles, sorted_labels = zip(*sorted_handles_labels)
-        fig.legend(sorted_handles, sorted_labels, bbox_to_anchor=(0.995, 0.49), loc='lower left', ncol=1, title=group)
+        fig.legend(sorted_handles, sorted_labels, bbox_to_anchor=(0.995, 0.948), loc='upper left', ncol=1, title=group)
 
         plt.tight_layout()
         filepath = os.path.join(get_project_root(), 'experiments/figures', f"metrics_{group}.png")
@@ -181,8 +212,8 @@ def plot_learning_curves(logfiles, subplot=True):
                     avg_val_loss = subset.groupby('epoch')['val_loss'].mean()
                     
                     # color = color_cycle[subplot+1]
-                    ax.plot(avg_train_loss.index, avg_train_loss, linestyle='-', marker=marker, markersize=4, color='g', label=f'Train Loss ({finetuning_method})')
-                    ax.plot(avg_val_loss.index, avg_val_loss, linestyle='--', marker=marker, markersize=4, color='darkorange', label=f'Val Loss ({finetuning_method})')
+                    ax.plot(avg_train_loss.index, avg_train_loss, linestyle='-', marker=marker, markersize=4, color='g', label=f'train ({finetuning_method})')
+                    ax.plot(avg_val_loss.index, avg_val_loss, linestyle='--', marker=marker, markersize=4, color='darkorange', label=f'val ({finetuning_method})')
 
                     ax.set_title(f'{sample_size}-shot')
                     if subplot in [0, 3]:
