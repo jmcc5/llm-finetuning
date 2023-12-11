@@ -147,7 +147,7 @@ def evaluate(model, tokenizer, eval_dataset_in, eval_dataset_out, batch_size=8, 
             "accuracy": accuracy, 
             "runtime": runtime, 
             "samples_per_second": samples_per_second,
-            "peak memory": get_peak_memory()
+            "peak_memory_gb": get_peak_memory()
         }
         return metrics
 
