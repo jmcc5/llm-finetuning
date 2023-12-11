@@ -84,6 +84,7 @@ def batch_evaluate(model_names, eval_dataset_in, eval_dataset_out, exp_label=Non
     
     # Iterate over models
     for model_name in model_names:
+        torch.cuda.empty_cache()
         # Load the model and tokenizer
         model, tokenizer = get_model(model_name, 'CausalLM', pretrained=True)
 

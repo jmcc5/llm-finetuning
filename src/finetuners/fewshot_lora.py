@@ -4,6 +4,7 @@ Few-shot fine-tuning with LoRA for PEFT.
 
 # Import Libraries
 import os
+import torch
 from transformers import TrainingArguments, Trainer, PrinterCallback
 from tqdm.autonotebook import tqdm
 
@@ -86,6 +87,7 @@ def batch_fine_tune(model_names, train_datasets, eval_dataset_in, eval_dataset_o
     
     # Iterate over models
     for model_name in model_names:
+        torch.cuda.empty_cache()
         # Iterate over few-shot trials
         for sample_size, trials in train_datasets.items():
             progress_bar = tqdm(trials, desc=f"{model_name} {sample_size}-shot")
