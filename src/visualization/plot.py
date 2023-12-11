@@ -146,9 +146,12 @@ def plot_in_out_domain_subplots(logfiles, metrics=['accuracy', 'runtime', 'peak_
                 title = "Peak Memory Usage (GB)"
             else:
                 title = f"{metric.capitalize()}"
-            ax.set_title(title)
-            ax.set_xlabel('In-domain')
-            ax.set_ylabel('Out-of-domain')
+            ax.set_title(title, size=14)
+            if subplot == 0:
+                ax.set_ylabel(f'{model_name}', size=14)
+            else:
+                ax.set_ylabel('Out-of-domain')
+            ax.set_xlabel('In-Domain')
             ax.grid(True)
             
             # Equalize axes and plot diagonal line
@@ -172,7 +175,7 @@ def plot_in_out_domain_subplots(logfiles, metrics=['accuracy', 'runtime', 'peak_
         handles, labels = ax.get_legend_handles_labels()
         sorted_handles_labels = sorted(zip(handles, labels), key=lambda x: x[1])
         sorted_handles, sorted_labels = zip(*sorted_handles_labels)
-        fig.legend(sorted_handles, sorted_labels, bbox_to_anchor=(0.995, 0.948), loc='upper left', ncol=1, title=group)
+        fig.legend(sorted_handles, sorted_labels, bbox_to_anchor=(0.995, 0.94), loc='upper left', ncol=1, title=group)
 
         plt.tight_layout()
         filepath = os.path.join(get_project_root(), 'experiments/figures', f"metrics_{group}.png")
@@ -219,10 +222,13 @@ def plot_learning_curves(logfiles, subplot=True):
                     ax.plot(avg_train_loss.index, avg_train_loss, linestyle='-', marker=marker, markersize=4, color='g', label=f'train ({finetuning_method})')
                     ax.plot(avg_val_loss.index, avg_val_loss, linestyle='--', marker=marker, markersize=4, color='darkorange', label=f'val ({finetuning_method})')
 
-                    ax.set_title(f'{sample_size}-shot')
+                    ax.set_title(f'{sample_size}-shot', size=14)
                     if subplot in [0, 3]:
                         ax.set_xlabel('Epoch')
-                    ax.set_ylabel('Loss')
+                    if subplot == 0:
+                        ax.set_ylabel(f'{model_name}', size=14)
+                    else:
+                        ax.set_ylabel('Loss')
                     ax.grid(True)
                     
             # Sort and move legend
