@@ -20,6 +20,7 @@ def batch_recursive_context_distillation(model_names, in_domain_dataset, train_d
     
     # Loop over models, sample sizes
     for model_name in model_names:
+        torch.cuda.empty_cache()
         for sample_size, train_dataset in train_datasets.items():
             # Dynamic batch sizing
             if model_name == 'opt-350m':

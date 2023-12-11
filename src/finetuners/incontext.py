@@ -84,6 +84,7 @@ def batch_evaluate(model_names, train_datasets, eval_dataset_in, eval_dataset_ou
     metrics = []
 
     for model_name in model_names:
+        torch.cuda.empty_cache()
         for sample_size, trials in train_datasets.items():
             progress_bar = tqdm(trials, desc=f"{model_name} {sample_size}-shot")
 
