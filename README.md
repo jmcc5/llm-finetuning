@@ -7,16 +7,16 @@
 
 - `data`: saved datasets from huggingface
 - [`experiments`](https://github.com/jmcc5/llm-finetuning/tree/main/experiments): experiment notebooks
-- `logs`: csv output from fine-tuning
-- `models`: saved pre-trained and fine-tuned models
+- [`logs`](https://github.com/jmcc5/llm-finetuning/tree/main/logs): csv output from task adaptation evaluation
+- `models`: saved pre-trained and fine-tuned models and tokenizers
 - [`src/`](https://github.com/jmcc5/llm-finetuning/tree/main/src): main project directory
   - [`data`](https://github.com/jmcc5/llm-finetuning/tree/main/src/data): functions for fetching and loading datasets
-  - [`finetuners`](https://github.com/jmcc5/llm-finetuning/tree/main/src/finetuners): fine-tuning methods
-  - [`models`](https://github.com/jmcc5/llm-finetuning/tree/main/src/model): functions for fetching and loading models
+  - [`finetuners`](https://github.com/jmcc5/llm-finetuning/tree/main/src/finetuners): task adaptation methods
+  - [`model`](https://github.com/jmcc5/llm-finetuning/tree/main/src/model): functions for fetching and loading models
   - [`visualization`](https://github.com/jmcc5/llm-finetuning/tree/main/src/visualization): functions for graphing fine-tuning output
 
 ## Summary
-This Python project aims to explore LLM fine-tuning and context-based methods in an accessible format. We build on work in [uds-lsv/llmft](https://github.com/uds-lsv/llmft) to implement few-shot fine-tuning and in-context learning (ICL) and create our own novel version of context distillation fine-tuning, originally proposed by [Anthropic](https://arxiv.org/abs/2112.00861) in 2021.
+This Python project aims to explore LLM task adaptation methods in an accessible format. We build on work in [uds-lsv/llmft](https://github.com/uds-lsv/llmft) to implement few-shot fine-tuning and in-context learning (ICL) and create our own novel version of context distillation fine-tuning, originally proposed by [Anthropic](https://arxiv.org/abs/2112.00861) in 2021.
 
 We rely heavily on huggingface's [transformers](https://github.com/huggingface/transformers). For ease of compute and iteration, we experiment with smaller models: [OPT-125m](https://huggingface.co/facebook/opt-125m) and [OPT-350m](https://huggingface.co/facebook/opt-350m). We use the MNLI dataset from [GLUE](https://huggingface.co/datasets/glue) as in-domain and [HANS](https://huggingface.co/datasets/hans) as out-of-domain. We also experiment with [Low Rank Adaptation (LoRA)](https://arxiv.org/abs/2106.09685) for [Parameter-efficient Finetuning](https://huggingface.co/docs/peft/index).
 
