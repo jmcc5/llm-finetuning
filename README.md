@@ -26,12 +26,12 @@ Our experiment [notebook](https://nbviewer.org/github/jmcc5/llm-finetuning/blob/
 ![Evaluation metrics, OPT-125m. Zero-shot baseline labeled on axes in red.](experiments/figures/metrics_opt-125m.png)
 ![Evaluation metrics, OPT-350m. Zero-shot baseline labeled on axes in red.](experiments/figures/metrics_opt-350m.png)
 
-The two figures above present accuracy, runtime, GPU memory usage, and loss for each fine-tuning method, sample size, and model. CONCLUSIONS.
+The two figures above present accuracy, runtime, GPU memory usage, and loss for each fine-tuning method, sample size, and model. We find that despite no significant accuracy improvements over a zero-shot baseline with any task adaptation methods implemented, context distillation generalized well out-of-domain. Few-shot fine-tuning with LoRA proved inaccurate but improved runtime, memory usage, and training performance.
 
 ![Few-shot fine-tuning learning curves, OPT-125m. Few-shot (round) and few-shot with LoRA (x).](experiments/figures/learning_curves_opt-125m.png)
 ![Few-shot fine-tuning learning curves, OPT-125m. Few-shot (round) and few-shot with LoRA (x).](experiments/figures/learning_curves_opt-350m.png)
 
-The figures above present training performance for our few-shot experiments, with and without LoRA, in the form of learning curves (loss over training epochs). CONCLUSIONS.
+The figures above present training performance for our few-shot experiments, with and without LoRA, in the form of learning curves (loss over training epochs). Few-shot fine-tuning without LoRA appears to produce a strongly overfit model, while the addition of LoRA seems to produce a generally well-fit result with OPT-125m. This may indicate more complex trends in training dynamics than expected when fine-tuning on so few examples.
 
 ## Setup
 Clone the repository.
