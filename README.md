@@ -26,7 +26,7 @@ Our experiment [notebook](https://nbviewer.org/github/jmcc5/llm-finetuning/blob/
 ![Evaluation metrics, OPT-125m. Zero-shot baseline labeled on axes in red.](experiments/figures/metrics_opt-125m.png)
 ![Evaluation metrics, OPT-350m. Zero-shot baseline labeled on axes in red.](experiments/figures/metrics_opt-350m.png)
 
-The two figures above present accuracy, runtime, GPU memory usage, and loss for each fine-tuning method, sample size, and model. We find that despite no significant accuracy improvements over a zero-shot baseline with any task adaptation methods implemented, context distillation generalized well out-of-domain. Few-shot fine-tuning with LoRA proved inaccurate but improved runtime, memory usage, and training performance.
+The two figures above present accuracy, runtime, GPU memory usage, and loss for each fine-tuning method, sample size, and model. We find that despite no significant accuracy improvements over a zero-shot baseline with any task adaptation methods implemented, context distillation generalized well out-of-domain (8% more accurate out-of-domain than the zero-shot baseline). Few-shot fine-tuning with LoRA proved inaccurate but improved runtime, memory usage, and training performance.
 
 ![Few-shot fine-tuning learning curves, OPT-125m. Few-shot (round) and few-shot with LoRA (x).](experiments/figures/learning_curves_opt-125m.png)
 ![Few-shot fine-tuning learning curves, OPT-125m. Few-shot (round) and few-shot with LoRA (x).](experiments/figures/learning_curves_opt-350m.png)
